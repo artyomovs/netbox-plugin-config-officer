@@ -1,2 +1,2 @@
 # netbox-plugin-config-officer
-A NetBox plugin that store configuration diffs and check compliance with templates
+NetBox plugin that collect running config from cisco, indicates diffs and check compliance with templates
