@@ -7,8 +7,20 @@ from .choices import CollectFailChoices, CollectStatusChoices
 import ipaddress
 from .collect import CollectDeviceData
 from .custom_exceptions import CollectionException
+from django.db.models import Q
+from git import Repo
+
 
 CF_NAME_COLLECTION_STATUS = "collection_status"
+GLOBAL_TASK_INIT_MESSAGE = "global sync task"
+NETBOX_DEVICES_CONFIGS_DIR = '/configs'
+
+
+def get_active_collect_task_count():
+    """ Get count of pending collection tasks."""
+    return  Collection.objects.filter((Q(status__iexact=CollectStatusChoices.STATUS_PENDING)
+            | Q(status__iexact=CollectStatusChoices.STATUS_RUNNING)) & Q(message__iexact=GLOBAL_TASK_INIT_MESSAGE)).count()
+
 
 @job("default")
 def collect_device_config_hostname(hostname):
@@ -61,16 +73,16 @@ def collect_device_config_task(task_id, commit_msg=""):
         collect_task.failed_reason = exc.reason
         collect_task.message = exc.message
         collect_task.save()    
-        # if get_active_collect_task_count() < 11:    
-        #     get_queue("default").enqueue("collect_devices.worker.git_commit_configs_changes", commit_msg)        
+        if get_active_collect_task_count() < 11:    
+            get_queue("default").enqueue("config_officer.worker.git_commit_configs_changes", commit_msg)        
         raise            
     except Exception as exc:
         collect_task.status = CollectStatusChoices.STATUS_FAILED
         collect_task.failed_reason = CollectFailChoices.FAIL_GENERAL
         collect_task.message = f"Unknown error {exc}"
         collect_task.save()
-        # if get_active_collect_task_count() < 11:
-        #     get_queue("default").enqueue("collect_devices.worker.git_commit_configs_changes", commit_msg)           
+        if get_active_collect_task_count() < 11:
+            get_queue("default").enqueue("config_officer.worker.git_commit_configs_changes", commit_msg)           
         raise
     collect_task.status = CollectStatusChoices.STATUS_SUCCEEDED
     device_netbox.custom_field_data[CF_NAME_COLLECTION_STATUS] = True
@@ -81,6 +93,28 @@ def collect_device_config_task(task_id, commit_msg=""):
     # except:
     #     pass
         
-    # if get_active_collect_task_count() < 11:
-    #     get_queue("default").enqueue("collect_devices.worker.git_commit_configs_changes", commit_msg)       
+    if get_active_collect_task_count() < 11:
+        get_queue("default").enqueue("config_officer.worker.git_commit_configs_changes", commit_msg)       
     return f"{collect_task.device.name} {ip} running config was collected."
+
+
+@job("default")
+def git_commit_configs_changes(msg):
+    """Commit changes in devices show-run."""
+
+    if get_active_collect_task_count() > 0:
+        return    
+    message = ""
+    try:
+        repo = Repo(NETBOX_DEVICES_CONFIGS_DIR)
+        repo.git.add("*")
+
+        # check if there are any changes
+        if len(repo.index.diff("HEAD")) > 0:
+            commit_hash = repo.git.commit("-m", msg, author="Netbox Netbox <netbox@example.com>")
+            message = f"Commited. Response={commit_hash}."
+        else:
+            message = "No changes for commit"
+    except Exception as e:
+        message = e
+    return message
