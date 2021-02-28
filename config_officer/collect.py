@@ -57,16 +57,18 @@ class CiscoDevice:
 
     def get_device_info(self, connection):
         """Gather and parse information from device."""
-        parsed = connection.send_command("show version").textfsm_parse_output()
+        parsed = connection.send_command("show version").textfsm_parse_output()[0]
         self.hostname = parsed['hostname']
-        self.pid = parsed['pid']
-        self.sn = parsed['serial']
+        self.pid = parsed['hardware'][0]
+        self.sn = parsed['serial'][0]
         self.sw = parsed['version']
+
 
     def update_custom_field(self, cf_name, cf_value):
         """Update netbox custom_field value."""
-        device_netbox = self.task.device.id
+        device_netbox = self.task.device
         device_netbox.custom_field_data[cf_name] = cf_value
+        device_netbox.save()
 
 
 class CollectDeviceData(CiscoDevice):
@@ -93,7 +95,7 @@ class CollectDeviceData(CiscoDevice):
                 message=f"Different hostnames in NetBox and device. IPAM: {self.hostname_ipam}. Device: {self.hostname}",
             )
 
-        if self.task.device.serial != self.sn:
+        if self.task.device.serial != "" and self.task.device.serial != self.sn:
             raise CollectionException(
                 reason=CollectFailChoices.FAIL_UPDATE,
                 message=f"Different SN in NetBox and Device. IPAM: {self.task.device.serial}. Device: {self.sn}",

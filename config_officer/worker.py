@@ -20,7 +20,7 @@ def collect_device_config_hostname(hostname):
 
     now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     commit_msg = f"device_{hostname}_{now}"      
-    get_queue("collectdevices").enqueue("collect_devices.worker.collect_device_config_task", collect_task.pk, commit_msg)
+    get_queue("default").enqueue("config_officer.worker.collect_device_config_task", collect_task.pk, commit_msg)
 
     # # Check device template after collect
     # get_queue("configmonitor").enqueue("config_monitor.worker.check_device_config_compliance", device=device)
@@ -55,7 +55,7 @@ def collect_device_config_task(task_id, commit_msg=""):
         device_netbox.save()
         ip = str(ipaddress.ip_interface(device_netbox.primary_ip4).ip)
         device_collect = CollectDeviceData(collect_task, ip=ip, hostname_ipam=str(device_netbox.name))
-        device_collect.collect()
+        device_collect.collect_information()
     except CollectionException as exc:
         collect_task.status = CollectStatusChoices.STATUS_FAILED
         collect_task.failed_reason = exc.reason
@@ -73,6 +73,7 @@ def collect_device_config_task(task_id, commit_msg=""):
         #     get_queue("default").enqueue("collect_devices.worker.git_commit_configs_changes", commit_msg)           
         raise
     collect_task.status = CollectStatusChoices.STATUS_SUCCEEDED
+    device_netbox.custom_field_data[CF_NAME_COLLECTION_STATUS] = True
     collect_task.save()
 
     # try:
