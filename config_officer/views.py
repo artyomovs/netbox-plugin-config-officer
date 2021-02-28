@@ -12,6 +12,8 @@ from django.contrib.auth.mixins import PermissionRequiredMixin
 from dcim.models import Device
 from django_rq import get_queue
 from django.shortcuts import render
+from django_rq import get_queue
+
 
 class GetConfigFromAllCiscoDevices(View):
     """Get show-running configuration from all devices with manufacture cisco."""
@@ -73,12 +75,10 @@ def collect_device_config(request, slug):
         message = f"Device {slug} not found"
     else:
         message = "Ok"
-        # try:
-        #     get_queue("default").enqueue(
-        #         "sync_devices.worker.sync_device_name", hostname=slug
-        #     )
-        #     message = f"Sync for {slug} has been started"
-        # except Exception as e:
-        #     message = e
+        try:
+            get_queue("default").enqueue("config_officer.worker.collect_device_config_hostname", hostname=slug)
+            message = f"Collection show-running config for {slug} has been started"
+        except Exception as e:
+            message = e
     return render(request, "config_officer/message.html", {"message": message})
 
