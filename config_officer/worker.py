@@ -17,7 +17,7 @@ from django.conf import settings
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
 CF_NAME_COLLECTION_STATUS = PLUGIN_SETTINGS.get("CF_NAME_COLLECTION_STATUS", "collection_status")
 NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get("NETBOX_DEVICES_CONFIGS_DIR", "/device_configs")
-
+GLOBAL_TASK_INIT_MESSAGE = 'global_collection_task'
 
 def get_active_collect_task_count():
     """ Get count of pending collection tasks."""
@@ -125,6 +125,7 @@ def git_commit_configs_changes(msg):
 
 @job("default")
 def check_device_config_compliance(device):
+    
     """Check a configuration template compliance for a particular device.""" 
 
     # Compliance.objects.get_or_create(device=device).delete()    
@@ -178,3 +179,18 @@ def check_device_config_compliance(device):
     compliance.save()
 
     return {device: compliance.status}
+
+
+@job("default")
+def collect_all_devices_configs():
+    """Worker - collect show-run configs from all devices."""
+    # commit changes before the global sync
+
+    Collection.objects.all().delete()
+    devices = Device.objects.all()
+    now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    commit_msg = f"global_{now}"      
+    for device in devices:
+        collect_task = Collection.objects.create(device=device, message=GLOBAL_TASK_INIT_MESSAGE)
+        collect_task.save()
+        get_queue("syncdevices").enqueue("config_officer.worker.collect_device_config_task", collect_task.pk, commit_msg)

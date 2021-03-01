@@ -3,7 +3,9 @@ from utilities.forms import (
     BootstrapMixin, 
     DynamicModelMultipleChoiceField,
     StaticSelect2,
-    APISelectMultiple
+    APISelectMultiple,
+    StaticSelect2Multiple,
+    TagFilterField
 )
 from .choices import CollectStatusChoices
 from .models import (
@@ -13,6 +15,8 @@ from .models import (
     ServiceMapping
 )
 from dcim.models import DeviceRole, DeviceType, Device
+from tenancy.models import Tenant
+from .choices import ServiceComplianceChoices
 
 BLANK_CHOICE = (('', '---------'),)
 
@@ -55,7 +59,6 @@ class TemplateForm(BootstrapMixin, forms.ModelForm):
         ]  
 
 
-
 class ServiceForm(BootstrapMixin, forms.ModelForm):
     name = forms.CharField(
         required=True,
@@ -72,7 +75,6 @@ class ServiceForm(BootstrapMixin, forms.ModelForm):
         fields = [
             'name', 'description'
         ]  
-
 
 
 class ServiceRuleForm(BootstrapMixin, forms.ModelForm):
@@ -143,3 +145,50 @@ class ServiceMappingCreateForm(BootstrapMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+
+class ServiceMappingFilterForm(BootstrapMixin, forms.ModelForm):
+    model = Device
+    field_order = ['q', 'status', 'role', 'tenant', 'device_type_id', 'tag']
+    q = forms.CharField(
+        required=False,
+        label='Search device or service'
+    )
+    tenant = DynamicModelMultipleChoiceField(
+        queryset=Tenant.objects.all(),
+        to_field_name='slug',
+        required=False,
+        widget=APISelectMultiple(
+            # value_field="slug",
+            # null_option=True,
+        )
+    )
+    role = DynamicModelMultipleChoiceField(
+        queryset=DeviceRole.objects.all(),
+        to_field_name='slug',
+        required=False,
+        widget=APISelectMultiple(
+            # value_field="slug",
+        )
+    )
+    device_type_id = DynamicModelMultipleChoiceField(
+        queryset=DeviceType.objects.all(),
+        required=False,
+        label='Model',
+        display_field="model",
+        widget=APISelectMultiple(
+            
+        )
+    )    
+    status = forms.MultipleChoiceField(
+        label='Status',
+        choices=ServiceComplianceChoices,
+        required=False,
+        widget=StaticSelect2Multiple()
+    )
+
+    tag = TagFilterField(model)
+
+    class Meta:
+        model = Device
+        fields = ['q', 'status', 'role', 'tenant', 'device_type_id', 'tag']

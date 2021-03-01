@@ -114,10 +114,6 @@ class CollectDeviceData(CiscoDevice):
             f.write(output.result)
 
     def collect_information(self):
-        raise CollectionException(
-            reason=CollectFailChoices.FAIL_LOGIN,
-            message=f"username={DEVICE_USERNAME}",
-        )
         """Sync current device."""
         self.check_reachability()
 

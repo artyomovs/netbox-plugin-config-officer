@@ -1,11 +1,10 @@
-{% extends 'base.html' %}
-{% load buttons %}
+{% extends 'generic/object_list.html' %}
 
 {% block content %}
-{% block title %}Collect running-config tasks{% endblock %}
+<h1>{% block title %}Collect running-config tasks{% endblock %}</h1>
 <div class="row">
 	<div class="col-md-9">
-        {% include 'utilities/obj_table.html' %}
+        {% include 'utilities/obj_table.html' with bulk_delete_url="plugins:config_officer:collection_task_delete" %}
     </div>
 	<div class="col-md-3 noprint">
 		{% include 'inc/search_panel.html' %}

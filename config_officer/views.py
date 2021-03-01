@@ -23,14 +23,15 @@ from .models import (
     ServiceMapping,
     Compliance   
 )
-from .filters import CollectionFilter
+from .filters import CollectionFilter, ServiceMappingFilter
 from .forms import (
     CollectionFilterForm, 
     TemplateForm,
     ServiceForm,
     ServiceRuleForm,  
     ServiceMappingForm,
-    ServiceMappingCreateForm 
+    ServiceMappingCreateForm,
+    ServiceMappingFilterForm
 )
 from .tables import (
     CollectionTable, 
@@ -39,22 +40,41 @@ from .tables import (
     ServiceRuleListTable,
     ServiceMappingListTable
 )
+from .choices import CollectStatusChoices
+from .git_manager import get_device_config, get_config_update_date, get_file_repo_state
 from copy import deepcopy
 from datetime import datetime
 import pytz
 import os 
 import io 
 import xlsxwriter
+from django.db.models import Q
 from django.conf import settings
 
+PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
+NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get("NETBOX_DEVICES_CONFIGS_DIR", "/device_configs")
 TIME_ZONE = os.environ.get("TIME_ZONE", "Europe/Moscow")
 
 
-class GetConfigFromAllCiscoDevices(View):
-    """Get show-running configuration from all devices with manufacture cisco."""
+def global_collection():
+    """Function for collect all devices running-configs."""
 
+    devices_collecting = Collection.objects.filter(
+        Q(status__iexact=CollectStatusChoices.STATUS_PENDING)
+        | Q(status__iexact=CollectStatusChoices.STATUS_RUNNING)
+    )
+    count = len(devices_collecting)
+    if count > 0:
+        return f"Global collection not possible now. There are {count} devices are in {CollectStatusChoices.STATUS_PENDING} or {CollectStatusChoices.STATUS_RUNNING} state"
+    else:
+        get_queue("default").enqueue("config_officer.worker.collect_all_devices_configs")
+        return "Global sync was started"
+
+
+class GlobalCollectionDeviceConfigs(View):
     def get(self, request):
-        return HttpResponse("hello")
+        message = global_collection()
+        return render(request, "config_officer/collection_message.html", {"message": message})
 
 
 class CollectStatusListView(PermissionRequiredMixin, ObjectListView):
@@ -105,18 +125,26 @@ class CollectStatusListView(PermissionRequiredMixin, ObjectListView):
     #         return redirect(request.get_full_path())
 
 
+class CollectTaskDelete(PermissionRequiredMixin, BulkDeleteView):
+    permission_required = ('dcim.view_site', 'dcim.view_device')
+    queryset = Collection.objects.filter()
+    table = CollectionTable
+    default_return_url = "plugin:config_officer:collection_status"
+
+
 def collect_device_config(request, slug):
     if len(Device.objects.filter(name__iexact=slug)) == 0:
         message = f"Device {slug} not found"
+        return render(request, "config_officer/collection_message.html", {"message": message})
     else:
         message = "Ok"
         try:
             get_queue("default").enqueue("config_officer.worker.collect_device_config_hostname", hostname=slug)
-            message = f"Collection show-running config for {slug} has been started"
+            return redirect(reverse('plugins:config_officer:collection_status'))
         except Exception as e:
             message = e
-    return render(request, "config_officer/message.html", {"message": message})
-
+            return render(request, "config_officer/collection_message.html", {"message": message})
+    
 
 class TemplateListView(PermissionRequiredMixin, ObjectListView):
     """All added templates."""
@@ -255,8 +283,8 @@ class ComplianceView(PermissionRequiredMixin, View):
 
     def get(self, request, device):
         record = get_object_or_404(self.queryset, device=device)
-        device_config = ""#get_device_config(env.NETBOX_DEVICES_CONFIGS_DIR, record.device.name, "running")
-        config_update_date = ""#get_config_update_date(env.NETBOX_DEVICES_CONFIGS_DIR, record.device.name, "running")
+        device_config = get_device_config(NETBOX_DEVICES_CONFIGS_DIR, record.device.name, "running")
+        config_update_date = get_config_update_date(NETBOX_DEVICES_CONFIGS_DIR, record.device.name, "running")
         return render(
             request,
             "config_officer/compliance_view.html",
@@ -273,8 +301,8 @@ class ServiceMappingListView(PermissionRequiredMixin, ObjectListView):
 
     permission_required = ('dcim.view_site', 'dcim.view_device')
     queryset = Device.objects.all()
-    # filterset = ServiceMappingFilter
-    # filterset_form = ServiceMappingFilterForm
+    filterset = ServiceMappingFilter
+    filterset_form = ServiceMappingFilterForm
     table = ServiceMappingListTable
     template_name = "config_officer/service_mapping_list.html"    
 
@@ -444,3 +472,18 @@ class ServiceDetach(PermissionRequiredMixin, View):
         get_queue("default").enqueue("config_officer.worker.upload_compliance_status_into_influxdb")
         messages.success(request, f'{len(selected_devices)} devices were de-attached from service.')
         return redirect(reverse('plugins:config_officer:service_mapping_list'))        
+
+
+def running_config(request, hostname):
+    """Show device config html page when custom link is clicked."""
+
+    running_config = get_device_config(NETBOX_DEVICES_CONFIGS_DIR, hostname, "running")
+    message = {}
+    if not running_config:
+        message["status"] = False
+        message["comment"] = "Error reading runnig config file from directory"
+    else:
+        message["status"] = True
+        message["running_config"] = running_config
+    message["repo_state"] = get_file_repo_state(NETBOX_DEVICES_CONFIGS_DIR, f"{hostname}_running.txt")
+    return render(request, "config_officer/device_runnig_config.html", {"message": message})

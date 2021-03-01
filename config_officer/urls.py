@@ -3,10 +3,12 @@ from . import views
 
 urlpatterns = [
     # Collect configuration
-    path('collect_all_cisco_configs/', views.GetConfigFromAllCiscoDevices.as_view(), name='collect_all_cisco_configs'),
+    path('collect_all_cisco_configs/', views.GlobalCollectionDeviceConfigs.as_view(), name='collect_all_cisco_configs'),
     path('collection_status/', views.CollectStatusListView.as_view(), name='collection_status'),
     path('collect_device_config/<slug:slug>/', views.collect_device_config, name='collect_device_config'),
+    path('collection_task_delete/', views.CollectTaskDelete.as_view(), name='collection_task_delete'),
 
+    
     # Templates
     path("templates/", views.TemplateListView.as_view(), name="template_list"),    
     path("templates/add/", views.TemplateCreateView.as_view(), name="template_add"),
@@ -37,4 +39,8 @@ urlpatterns = [
     path("service_mapping/<int:pk>/delete", views.ServiceMappingDeleteView.as_view(), name="service_mapping_delete"),      
 
     path('compliance/<int:device>', views.ComplianceView.as_view(), name='compliance'),  
-]    
+
+    #Show running-config information page
+    path("running_config/<slug:hostname>/", views.running_config, name="running_config"),    
+]   
+

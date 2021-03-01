@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% load buttons %}
+
+{% block content %}
+    <div>    
+        <span class="text-warning"> <i class="fa fa-code fa-2x"></i></span>
+        <span class="text-primary">{{ message.repo_state.commits_count }} changes have been made since           
+        {{ message.repo_state.first_commit_date }}. Last change:</span> <span class="text-success">{{ message.repo_state.last_commit_date }}</span>
+        <table class="table table-borderless">
+            <thead>
+                <tr>
+                <th scope="col" style="width: 70%" class="text-center">running configuration</th>
+                <th scope="col" style="width: 30%" class="text-center">last diffs</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                <td>
+                    {% if message.status == True %}
+                        <pre><code>{{ message.running_config|safe }}</code></pre>
+                    {% else %}
+                        <div class="alert alert-danger" role="alert">
+                            {{ message.comment }}
+                        </div>
+                    {% endif %}             
+                </td>
+                <td>
+                    {% for commit in message.repo_state.commits %}
+                        <div class="card">
+                            <div class="badge badge-primary text-wrap text-success">
+                                {{ commit.date }} | {{ commit.hash }}
+                            </div>
+                            
+                        </div>
+                        <div class="card-body">
+                            {% if commit.diff|length > 1000 %}
+                                <button type="button" id='button_collapse' class="btn btn-link collapsed text-dark" data-toggle="collapse" data-target=#input_area_{{ commit.hash }}>Show/hide</button>
+                                <div id=input_area_{{ commit.hash }} class="collapse">
+                                    <pre><samp><p class="card-text text-info">{{ commit.diff }}</p></samp></pre>
+                                </div>
+                            {% else %}
+                                <pre><samp><p class="card-text text-info">{{ commit.diff }}</p></samp></pre>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </td>
+                </tr>        
+        </table>
+    </div> 
+{% endblock %}
