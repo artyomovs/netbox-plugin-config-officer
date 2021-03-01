@@ -4,7 +4,7 @@ from utilities.choices import ButtonColorChoices
 menu_items = (
     PluginMenuItem(
         link='plugins:config_officer:collection_status',
-        link_text='Сollection running_config',
+        link_text='Device data collection',
         buttons=(
             PluginMenuButton(
                 link = 'plugins:config_officer:collect_all_cisco_configs', 

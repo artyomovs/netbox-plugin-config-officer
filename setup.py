@@ -1,14 +1,13 @@
 """Setup officer plugin."""
 
 from setuptools import find_packages, setup
-from pip.req import parse_requirements
 
 with open("README.md", "r") as f:
     long_description = f.read()
 
 setup(
     name="netbox-plugin-config-officer",
-    version="2021.02",
+    version="0.0.1",
     description="NetBox plugin that store configuration/diffs, and check compliance with templates",
     long_description=long_description,
     long_description_content_type="text/markdown",
