@@ -1,6 +1,6 @@
 from django_rq import job, get_queue
 from dcim.models import Device
-from .models import Collection
+from .models import Collection, Compliance, ServiceMapping
 from datetime import datetime
 import time
 from .choices import CollectFailChoices, CollectStatusChoices
@@ -9,11 +9,14 @@ from .collect import CollectDeviceData
 from .custom_exceptions import CollectionException
 from django.db.models import Q
 from git import Repo
+from .choices import ServiceComplianceChoices
+from .git_manager import get_device_config, get_days_after_update
+from .config_manager import get_config_diff
+from django.conf import settings
 
-
-CF_NAME_COLLECTION_STATUS = "collection_status"
-GLOBAL_TASK_INIT_MESSAGE = "global sync task"
-NETBOX_DEVICES_CONFIGS_DIR = '/configs'
+PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
+CF_NAME_COLLECTION_STATUS = PLUGIN_SETTINGS.get("CF_NAME_COLLECTION_STATUS", "collection_status")
+NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get("NETBOX_DEVICES_CONFIGS_DIR", "/device_configs")
 
 
 def get_active_collect_task_count():
@@ -35,10 +38,10 @@ def collect_device_config_hostname(hostname):
     get_queue("default").enqueue("config_officer.worker.collect_device_config_task", collect_task.pk, commit_msg)
 
     # # Check device template after collect
-    # get_queue("configmonitor").enqueue("config_monitor.worker.check_device_config_compliance", device=device)
+    # get_queue("configmonitor").enqueue("config_officer.worker.check_device_config_compliance", device=device)
 
     # # Upload compliance information into InfluxDB
-    # get_queue("default").enqueue("config_monitor.worker.upload_compliance_status_into_influxdb")    
+    # get_queue("default").enqueue("config_officer.worker.upload_compliance_status_into_influxdb")    
 
 
 @job("default")
@@ -88,10 +91,10 @@ def collect_device_config_task(task_id, commit_msg=""):
     device_netbox.custom_field_data[CF_NAME_COLLECTION_STATUS] = True
     collect_task.save()
 
-    # try:
-    #     get_queue("configmonitor").enqueue("config_monitor.worker.check_device_config_compliance", device=st.device)        
-    # except:
-    #     pass
+    try:
+        get_queue("default").enqueue("config_officer.worker.check_device_config_compliance", device=collect_task.device)        
+    except:
+        pass
         
     if get_active_collect_task_count() < 11:
         get_queue("default").enqueue("config_officer.worker.git_commit_configs_changes", commit_msg)       
@@ -118,3 +121,60 @@ def git_commit_configs_changes(msg):
     except Exception as e:
         message = e
     return message
+
+
+@job("default")
+def check_device_config_compliance(device):
+    """Check a configuration template compliance for a particular device.""" 
+
+    # Compliance.objects.get_or_create(device=device).delete()    
+    compliance = Compliance.objects.get_or_create(device=device)[0]
+    compliance.status = ServiceComplianceChoices.STATUS_NON_COMPLIANCE
+    compliance.notes = "not checked yet"
+    compliance.generated_config = "None"
+    compliance.diff = "None"
+    compliance.save()
+    compliance.services = [m.service.name for m in ServiceMapping.objects.filter(device=compliance.device)]
+
+    # Check if there are matched templates
+    templates = compliance.get_device_templates()
+    if not templates:
+        compliance.notes = 'No matched templates'
+        compliance.save()   
+        return {device: compliance.notes}    
+
+    # Check if device config file exists: 
+    device_config = get_device_config(NETBOX_DEVICES_CONFIGS_DIR, device.name, "running")        
+    if not device_config:
+        compliance.notes = 'running config not found in git'
+        compliance.save()
+        return {device: compliance.notes}
+
+    # If device configuration elder tham 7 days - non_compliance
+    device_config_age = get_days_after_update(NETBOX_DEVICES_CONFIGS_DIR, device.name, "running")       
+    if device_config_age > 7:    
+        compliance.notes = f"device config is staled ({device_config_age} days)"
+        compliance.save()
+        return {device: compliance.notes}
+    elif device_config_age < 0:
+        compliance.notes = 'unknown error during calculating config age',
+        compliance.save()
+        return {device: compliance.notes}
+
+    generated_config = compliance.get_generated_config().splitlines()
+    
+    compliance.diff = get_config_diff(generated_config, device_config.splitlines())
+    
+    if len(compliance.diff) == 0:     
+        # Running configuration absilutely compliant to template
+        compliance.diff = ""   
+        compliance.notes = None
+        compliance.status = ServiceComplianceChoices.STATUS_COMPLIANCE
+    else:
+        # There are diffs
+        compliance.diff = "\n".join("\n".join(line) for line in compliance.diff)
+        compliance.notes = None
+        compliance.status = ServiceComplianceChoices.STATUS_NON_COMPLIANCE
+    compliance.save()
+
+    return {device: compliance.status}

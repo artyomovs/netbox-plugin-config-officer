@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% load buttons %}
+
+{% block content %}
+<div class="pull-right noprint">
+    {% add_button 'plugins:config_officer:service_rule_add' %}
+</div>
+<h1>{% block title %}Service rules{% endblock %}</h1>
+	
+<div class="row">
+    <div class="col-md-12">
+        {% include 'utilities/obj_table.html' %}
+    </div>
+</div>
+{% endblock %}

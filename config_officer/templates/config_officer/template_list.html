@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% load buttons %}
+
+{% block header %}
+    <div class="col-md-12">
+        <div class="row noprint">
+            <ol class="breadcrumb">
+                <li class="active"> 1. create <a href="{% url 'plugins:config_officer:template_list' %}">template </a></li>
+                <li> 2. create <a href="{% url 'plugins:config_officer:service_list' %}">service/rule </a></li>
+                <li> 3. assign <a href="{% url 'plugins:config_officer:service_mapping_list' %}">service to device </a></li>
+            </ol>
+        </div>
+    </div>
+{% endblock %}
+
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="pull-right noprint">
+                {% add_button 'plugins:config_officer:template_add' %}
+            </div>
+            <h1>{% block title %}Device configuration templates{% endblock %}</h1>
+        </div>
+    </div>
+	
+    <div class="row">
+        <div class="col-md-12">
+            {% include 'utilities/obj_table.html' with bulk_delete_url="plugins:config_officer:templates_bulk_delete" %}		
+        </div>
+    </div>
+{% endblock %}
+

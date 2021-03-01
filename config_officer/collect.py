@@ -6,16 +6,17 @@ import os
 import socket
 import time
 from scrapli.driver.core import IOSXEDriver
+from django.conf import settings
 
-
-DEVICE_USERNAME = 'cisco'
-DEVICE_PASSWORD = 'cisco'
-CF_NAME_SW_VERSION = 'version'
-CF_NAME_SSH = 'ssh'
-CF_NAME_LAST_COLLECT_DATE = 'last_collect_date'
-CF_NAME_LAST_COLLECT_TIME = 'last_collect_time'
+PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
+DEVICE_USERNAME = PLUGIN_SETTINGS.get("DEVICE_USERNAME", "")
+DEVICE_PASSWORD = PLUGIN_SETTINGS.get("DEVICE_PASSWORD", "")
+CF_NAME_SW_VERSION = PLUGIN_SETTINGS.get("CF_NAME_SW_VERSION", "")
+CF_NAME_SSH = PLUGIN_SETTINGS.get("CF_NAME_SSH", "")
+CF_NAME_LAST_COLLECT_DATE = PLUGIN_SETTINGS.get("CF_NAME_LAST_COLLECT_DATE", "")
+CF_NAME_LAST_COLLECT_TIME = PLUGIN_SETTINGS.get("CF_NAME_LAST_COLLECT_TIME", "")
+NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get("NETBOX_DEVICES_CONFIGS_DIR", "/device_configs")
 TIME_ZONE = os.environ.get("TIME_ZONE", "Europe/Moscow")
-NETBOX_DEVICES_CONFIGS_DIR = '/configs'
 
 
 class CiscoDevice:
@@ -24,10 +25,6 @@ class CiscoDevice:
         self.pid = ""
         self.sn = ""
         self.sw = ""
-        self.mgmt_if = ""
-        self.interfaces = {}
-        self.sim_count = 0
-        self.sim_active = ""
         self.task = task
         self.device = {
             "auth_username": DEVICE_USERNAME,
@@ -117,6 +114,10 @@ class CollectDeviceData(CiscoDevice):
             f.write(output.result)
 
     def collect_information(self):
+        raise CollectionException(
+            reason=CollectFailChoices.FAIL_LOGIN,
+            message=f"username={DEVICE_USERNAME}",
+        )
         """Sync current device."""
         self.check_reachability()
 

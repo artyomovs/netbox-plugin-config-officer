@@ -75,22 +75,8 @@ def get_config_diff(template, config, ignore=None):
 
     diff = diffios.Compare(template, config, ignore)
 
-    # Get lines that exist in device config only
-    additional_lines = diff.additional()
-
     # Get lines that exist in template only
     missing_lines = diff.missing()
-
-    config_diff = list()
-    # Go through lines, that does not exist in device running
-    #   --config and get other lines from this "block".
-    # missing_lines = [list(map(lambda s: re.sub(r"^ ", " --", s), l)) for l in missing_lines]
-    # for missing_line in missing_lines:
-    #     if any(missing_line[0] in elem for elem in additional_lines):
-    #         block_additional = [additional[1:] for additional in additional_lines if missing_line[0] in additional][0]            
-    #         block_additional = map(lambda s: s.replace(" ", " ++", 1), block_additional)
-    #         missing_line.extend(block_additional)
-    #     config_diff.append(missing_line)
 
     return missing_lines
 

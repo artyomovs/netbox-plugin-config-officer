@@ -1,4 +1,4 @@
-"""Models for config_monitor plugin."""
+"""Models for config_officer plugin."""
 
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
@@ -9,7 +9,7 @@ from .choices import (
     CollectStatusChoices
     
 )
-from .config_manage import generate_templates_config_for_device
+from .config_manager import generate_templates_config_for_device
 from django.db.models import Q
 
 
@@ -51,7 +51,7 @@ class Template(models.Model):
     configuration = models.TextField(null=True, blank=True)
 
     def get_absolute_url(self):
-        return reverse("plugins:netbox_config_officer:template", args=[self.pk])
+        return reverse("plugins:config_officer:template", args=[self.pk])
 
     class Meta:
         ordering = ["-id"]
@@ -84,7 +84,7 @@ class Service(models.Model):
         return ServiceRule.objects.filter(service=self)
 
     def get_absolute_url(self):
-        return reverse("plugins:config_monitor:service", args=[self.pk])
+        return reverse("plugins:config_officer:service", args=[self.pk])
 
     # Get templates, matched with the device
     def get_device_templates(self, device):
@@ -215,7 +215,7 @@ class Compliance(models.Model):
         return self.generated_config
 
     def get_absolute_url(self):
-        return reverse("plugins:config_monitor:compliance", args=[self.pk])
+        return reverse("plugins:config_officer:compliance", args=[self.pk])
 
     def get_services_list_for_device(self):
         return [m.service for m in ServiceMapping.objects.filter(device=self.device)]

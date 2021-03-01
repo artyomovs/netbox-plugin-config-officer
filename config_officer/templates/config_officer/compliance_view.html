@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load buttons %}
+{% load static %}
+{% load helpers %}
+{% load custom_links %}
+{% load plugins %}
+
+{% block title %}{{ record }}{% endblock %}
+
+{% block header %}
+    {% include 'config_officer/navi_panel.html' %}
+    <div class="col-md-10">
+        <h1> {{ record.device }} compliance status</h1>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-10">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <strong>Service compliance status</strong>
+                </div>
+                <table class="table table-hover panel-body attr-table">                  
+                    <tr>
+                        <td>Device</td>
+                        <td>
+                            <span>
+                                <a href="{% url 'dcim:device' pk=record.device.pk %}">
+                                    {{ record.device|placeholder }}
+                                </a>       
+                            </span>                 
+                        </td>
+                    </tr>
+                    <tr>     
+                        <td>Status</td>
+                        <td>
+                            {% if record.status == 'compliance' %}
+                                <label class="label" style="background-color: green">{{ record.status }}</label>
+                            {% else %}
+                                <label class="label" style="background-color: red">{{ record.status }}</label>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>     
+                        <td>Notes</td>
+                        <td><p class="text-info">{{ record.notes }}</p></td>            
+                    </tr>
+                    <tr>     
+                        <td>Attached services</td>
+                        <td>
+                            {% for service in record.get_services_list_for_device %}
+                                <a href="{% url 'plugins:config_officer:service' pk=service.pk %}">
+                                    {{ service.name|default:"&mdash;" }}<br>
+                                </a>                        
+                            {% endfor %}
+                        </td>
+                    </tr>                         
+                    <tr>     
+                        <td>Matched templates</td>
+                        <td>
+                            {% for template in record.get_device_templates %}
+                                <a href="{% url 'plugins:config_officer:template' pk=template.pk %}">
+                                    {{ template.name|default:"&mdash;" }}<br>
+                                </a>                        
+                            {% endfor %}
+                        </td>
+                    </tr>                                        
+                </table>                      
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-10">    
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <strong>Configuration compliance</strong>
+                </div>
+                <table class="table table-hover panel-body">
+                    <tr>
+                        <th>Generated config</th>
+                        <th>Diff</th>
+                    </tr>
+                    <tr>                          
+                        <td>
+                            <pre><samp>{{ record.get_generated_config }}</samp></pre>
+                        </td>
+                        <td>
+                            <pre><samp>{{ record.diff }}</samp></pre>
+                        </td>
+                    </tr>
+                </table>
+            </div>    
+        </div>
+    </div>    
+
+    <div class="row">
+        <div class="col-md-10">    
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <strong>All matched templates</strong>
+                </div>
+                <table class="table table-hover panel-body">
+                    <tr>
+                        <th>Template</th>
+                        <th>Template text</th>
+                    </tr>
+                    {% for template in record.get_device_templates %}
+                        <tr>
+                            <td>
+                                <a href="{{ template.get_absolute_url }}">{{ template }}</a>
+                            </td>                         
+                            <td>
+                                <pre><div class="text-primary"><samp>{{ template.configuration }}</samp></div></pre>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </div>    
+        </div>
+    </div>  
+
+    
+    <button type="button" id='button_collapse' class="btn btn-link collapsed text-dark" data-toggle="collapse" data-target=#running_config>Show/hide running config</button>
+    <div id=running_config class="collapse">
+        <div class="row">
+            <div class="col-md-10">    
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <strong>{{ record.device }} running configuration </strong><kbd> updated: {{config_update_date}}</kbd>
+                    </div>         
+                        <pre><div class="text-success"><samp>{{ device_config }}</samp></div></pre>
+                </div>
+            </div>
+        </div>       
+    </div>
+{% endblock %}

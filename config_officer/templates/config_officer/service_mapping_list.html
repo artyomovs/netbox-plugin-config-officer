@@ -1,0 +1,35 @@
+{% extends 'generic/object_list.html' %}
+
+{% block header %}
+    <div class="col-md-12">
+        <div class="row noprint">
+            <ol class="breadcrumb">
+                <li> 1. create <a href="{% url 'plugins:config_officer:template_list' %}">template </a></li>
+                <li> 2. create <a href="{% url 'plugins:config_officer:service_list' %}">service/rule </a></li>
+                <li class="active"> 3. assign <a href="{% url 'plugins:config_officer:service_mapping_list' %}">service to device </a></li>
+            </ol>
+        </div>
+    </div>
+{% endblock %}
+
+{% block buttons %}
+    <a href="{% url 'plugins:config_officer:service_mapping_list' %}?to_excel" class="btn btn-success">
+        <span class="fa fa-upload" aria-hidden="true"></span>  Export
+    </a>
+{% endblock %}
+
+{% block title %}Compliance{% endblock %}
+
+{% block bulk_buttons %}
+    <button type="submit" name="_device" formaction="{% url 'plugins:config_officer:assign_service' %}" class="btn btn-success btn-sm">
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Attach service
+    </button>
+    <button type="submit" name="_device" formaction="{% url 'plugins:config_officer:remove_assignment' %}" class="btn btn-warning btn-sm">
+        <span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Detach service
+    </button>
+{% endblock %}
+
+
+
+
+
