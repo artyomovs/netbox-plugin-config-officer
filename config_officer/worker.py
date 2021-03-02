@@ -37,12 +37,6 @@ def collect_device_config_hostname(hostname):
     commit_msg = f"device_{hostname}_{now}"      
     get_queue("default").enqueue("config_officer.worker.collect_device_config_task", collect_task.pk, commit_msg)
 
-    # # Check device template after collect
-    # get_queue("configmonitor").enqueue("config_officer.worker.check_device_config_compliance", device=device)
-
-    # # Upload compliance information into InfluxDB
-    # get_queue("default").enqueue("config_officer.worker.upload_compliance_status_into_influxdb")    
-
 
 @job("default")
 def collect_device_config_task(task_id, commit_msg=""):
@@ -184,7 +178,7 @@ def check_device_config_compliance(device):
 @job("default")
 def collect_all_devices_configs():
     """Worker - collect show-run configs from all devices."""
-    # commit changes before the global sync
+    # commit changes before the global collection
 
     Collection.objects.all().delete()
     devices = Device.objects.all()
@@ -193,4 +187,4 @@ def collect_all_devices_configs():
     for device in devices:
         collect_task = Collection.objects.create(device=device, message=GLOBAL_TASK_INIT_MESSAGE)
         collect_task.save()
-        get_queue("syncdevices").enqueue("config_officer.worker.collect_device_config_task", collect_task.pk, commit_msg)
+        get_queue("default").enqueue("config_officer.worker.collect_device_config_task", collect_task.pk, commit_msg)

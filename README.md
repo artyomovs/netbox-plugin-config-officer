@@ -1,13 +1,13 @@
 # Config Officer - NetBox plugin
 
-NetBox plugin to deal with Cisco configuration (collect running config from cisco, indicates diffs and check compliance with templates).
+NetBox plugin that deals with Cisco device configuration (collects running config from Cisco devices, indicates config changes and checks templates compliance).
 
 A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with running-configurations of Cisco devices.
 
-- Collect actual information from Cisco devices (running_config, version, ip addresses, etc.) for appearance in NetBox page.
+- Collect actual information from Cisco devices (running_config, version, ip addresses, etc.) and shows it on a dedicated NetBox page.
 - Save Cisco running configuration in local directory and display all changes with git-like diffs.
 - Set up configuration templates for distinct device roles, types.
-- Audit whether devices are configured as stated in appropriate template.
+- Audit whether devices are configured according to appropriate template.
 - Export template compliance detailed information to Excel.
 
 ## Installation and configuration
@@ -28,8 +28,8 @@ git clone https://github.com/netbox-community/netbox-docker
 ```shell
 cd ~/netbox
 git clone https://github.com/artyomovs/netbox-plugin-config-officer
-$ cd netbox-plugin-config-officer
-$ sudo docker build -t netbox-myplugins .
+cd netbox-plugin-config-officer
+sudo docker build -t netbox-myplugins .
 ```
 
 >What's in the Dockerfile:
@@ -46,7 +46,7 @@ $ sudo docker build -t netbox-myplugins .
 ### 2.Create local git repository and perform first commit
 
 ```shell
-$ mkdir ~/netbox/netbox-docker/device_configs && cd "$_"
+mkdir ~/netbox/netbox-docker/device_configs && cd "$_"
 git init 
 echo hello > hello.txt
 git add .
@@ -69,10 +69,12 @@ services:
       - GIT_COMMITTER_EMAIL=netbox@example.com
     volumes:    
     #...add this volume:...
-      - ./device_configs:/device_configs:z</b>
+      - ./device_configs:/device_configs:z
+    ports:
+    - 8080:8080      
 ```
 
-### 4. In a global Netbox **configuration.py** configuration file, update or add PLUGINS parameter
+### 4. Update the *PLUGINS* parameter in the global Netbox **configuration.py** config file in *netbox-docker/configuration* directory
 
 ```python
 PLUGINS = [
@@ -113,20 +115,20 @@ sudo docker-compose up -d
 
 #### Custom Links
 
-|        Name           | Content type  | URL                                                                            |
+| Name                  | Content type  | URL                                                                            |
 |-----------------------|---------------|--------------------------------------------------------------------------------|
 | collect_device_data   | dcim > device | *`http://NETBOX_IP:8080/plugins/config_officer/collect_device_config/{{ obj }}`* |
 | show_running_config   | dcim > device | *`http://NETBOX_IP:8080/plugins/config_officer/running_config/{{ obj.name }}`*   |
 
 #### Custom Fields (optional)
 
-|        Name           | Object(s)     | Label                     |
-|-----------------------|---------------|---------------------------|
-| collection_status     | dcim > device | last collection status    |
-| last_collect_date     | dcim > device | date of last collection   |
-| last_collect_time     | dcim > device | time of last collection   |
-| ssh                   | dcim > device | ssh enabled               |
-| version               | dcim > device | Software version          |
+| Name                  | Label                     | Object(s)     |
+|-----------------------|---------------------------|---------------|
+| collection_status     | Last collection status    | dcim > device |
+| last_collect_date     | Date of last collection   | dcim > device |
+| last_collect_time     | Time of last collection   | dcim > device |
+| ssh                   | SSH enabled               | dcim > device |
+| version               | Software version          | dcim > device |
 
 
 # Usage
