@@ -1,5 +1,6 @@
 # Config Officer - NetBox plugin
 
+
 NetBox plugin that deals with Cisco device configuration (collects running config from Cisco devices, indicates config changes and checks templates compliance).
 
 A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with running-configurations of Cisco devices.
@@ -11,6 +12,8 @@ A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with r
 - Export template compliance detailed information to Excel.
 
 ## Installation and configuration
+
+>Watch [YouTube](https://www.youtube.com/watch?v=O5kayrkuC1E) video about installation and usage of the plugin
 
 This instruction only describes how to install this plugin into [Docker-compose](https://github.com/netbox-community/netbox-docker) instance of NetBox.
 >General installation steps and considerations follow the [official guidelines](https://netbox.readthedocs.io/en/stable/plugins/).
@@ -130,5 +133,6 @@ sudo docker-compose up -d
 | ssh                   | SSH enabled               | dcim > device |
 | version               | Software version          | dcim > device |
 
-
 # Usage
+
+It was a challenge to write down the plugin usage instruction. Now you could check it on [YouTube](https://www.youtube.com/watch?v=O5kayrkuC1E) video about installation and usage of the plugin
