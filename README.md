@@ -1,11 +1,11 @@
 # Config Officer - NetBox plugin
 
-NetBox plugin that deals with Cisco device configuration (collects running config from Cisco devices, indicates config changes and checks templates compliance).
+NetBox plugin that deals with Cisco device configuration (collects running config from Cisco devices, indicates config changes, and checks templates compliance).
 
-A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with running-configurations of Cisco devices.
+A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with running-configuration of Cisco devices.
 
-- Collect actual information from Cisco devices (running_config, version, ip addresses, etc.) and shows it on a dedicated NetBox page.
-- Save Cisco running configuration in local directory and display all changes with git-like diffs.
+- Collect actual information from Cisco devices (running_config, version, IP addresses, etc.) and shows it on a dedicated NetBox page.
+- Save Cisco running configuration in a local directory and display all changes with git-like diffs.
 - Set up configuration templates for distinct device roles, types.
 - Audit whether devices are configured according to appropriate template.
 - Export template compliance detailed information to Excel.
@@ -16,14 +16,14 @@ This instruction only describes how to install this plugin into [Docker-compose]
 >General installation steps and considerations follow the [official guidelines](https://netbox.readthedocs.io/en/stable/plugins/).
 >The plugin is available as a Python package from [PyPi](https://pypi.org/project/netbox-plugin-config-officer/) or from [GitHub](https://github.com/artyomovs/netbox-plugin-config-officer).
 
-### 0.Pull NetBox docker-compose version from GitHub
+### 0. Pull NetBox docker-compose version from GitHub
 
 ```shell
 mkdir ~/netbox && cd "$_"
 git clone https://github.com/netbox-community/netbox-docker
 ```
 
-### 1.Create new docker container based on latest netbox image
+### 1. Create new docker container based on latest netbox image
 
 ```shell
 cd ~/netbox
@@ -43,11 +43,11 @@ sudo docker build -t netbox-myplugins .
 >RUN /opt/netbox/venv/bin/pip install  --no-warn-script-location /netbox-plugin-config-officer/
 >```
 
-### 2.Create local git repository and perform first commit
+### 2. Create local git repository and perform first commit
 
 ```shell
 mkdir ~/netbox/netbox-docker/device_configs && cd "$_"
-git init 
+git init
 echo hello > hello.txt
 git add .
 git commit -m "Initial"
@@ -63,15 +63,15 @@ services:
     image: netbox-myplugins
     ...
     #...Add environment variables for git:
-    environment: 
+    environment:
       - GIT_PYTHON_GIT_EXECUTABLE=/usr/bin/git
       - GIT_COMMITTER_NAME=netbox
       - GIT_COMMITTER_EMAIL=netbox@example.com
-    volumes:    
+    volumes:
     #...add this volume:...
       - ./device_configs:/device_configs:z
     ports:
-    - 8080:8080      
+    - 8080:8080
 ```
 
 ### 4. Update the *PLUGINS* parameter in the global Netbox **configuration.py** config file in *netbox-docker/configuration* directory
@@ -94,12 +94,12 @@ PLUGINS_CONFIG = {
         # Mount this directory to NetBox on docker-compose.yml
         "NETBOX_DEVICES_CONFIGS_DIR": "/device_configs",
 
-        # Add these custom fields to NetBox in advance. 
+        # Add these custom fields to NetBox in advance.
         "CF_NAME_SW_VERSION": "version",
         "CF_NAME_SSH": "ssh",
         "CF_NAME_LAST_COLLECT_DATE": "last_collect_date",
         "CF_NAME_LAST_COLLECT_TIME": "last_collect_time",
-        "CF_NAME_COLLECTION_STATUS": "collection_status",        
+        "CF_NAME_COLLECTION_STATUS": "collection_status"
     }
 }
 ```
