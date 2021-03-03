@@ -11,7 +11,7 @@ from extras.plugins import PluginConfig
 class NetboxConfigOfficer(PluginConfig):
     name = "config_officer"
     verbose_name = "Config officer"
-    description = "Cisco configuration monitoring and template compliance"
+    description = "Cisco configuration collector and template compliance"
     version = "0.0.1"
     author = "Sergei Artemov"
     base_url = "config_officer"
