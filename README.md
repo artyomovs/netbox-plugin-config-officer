@@ -71,7 +71,12 @@ services:
       - GIT_PYTHON_GIT_EXECUTABLE=/usr/bin/git
       - GIT_COMMITTER_NAME=netbox
       - GIT_COMMITTER_EMAIL=netbox@example.com
+<<<<<<< HEAD
     volumes:
+=======
+    # user: '101' <---   Comment this. I don't know how to make ssh work with this line as for now
+    volumes:    
+>>>>>>> dev
     #...add this volume:...
       - ./device_configs:/device_configs:z
     ports:
