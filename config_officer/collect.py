@@ -14,6 +14,7 @@ from ipam.choices import IPAddressRoleChoices, IPAddressStatusChoices
 from dcim.models import Interface, DeviceType
 from ipam.models import IPAddress, Prefix, VRF
 from dcim.fields import mac_unix_expanded_uppercase
+import importlib
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
 DEVICE_USERNAME = PLUGIN_SETTINGS.get("DEVICE_USERNAME", "")
@@ -201,7 +202,7 @@ class CollectDeviceData(CiscoDevice):
             "port": 22,
             "timeout_socket": 20,
             "timeout_ops": 60,
-            # "ssh_config_file": "/root/.ssh/config",
+            "ssh_config_file": os.path.dirname(importlib.util.find_spec("config_officer").origin) + "/ssh_config",
         }
 
     # Check if NetBox and Device data are the same
@@ -358,4 +359,4 @@ class CollectDeviceData(CiscoDevice):
         # save to git repo        
         filename = f"{NETBOX_DEVICES_CONFIGS_DIR}/{self.hostname}_running.txt"
         with IOSXEDriver(**self.device) as connection:
-            self.save_running_config_to_file(connection, filename.lower())
+            self.save_running_config_to_file(connection, filename)
