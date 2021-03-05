@@ -1,10 +1,9 @@
 # Config Officer - NetBox plugin
 
-
 NetBox plugin that deals with Cisco device configuration (collects running config from Cisco devices, indicates config changes, and checks templates compliance).
 
-
 A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with running-configuration of Cisco devices.
+>Compatible with NetBox 2.9 and higher versions only.
 
 - Collect actual information from Cisco devices (running_config, version, IP addresses, etc.) and shows it on a dedicated NetBox page.
 - Save Cisco running configuration in a local directory and display all changes with git-like diffs.
@@ -12,7 +11,7 @@ A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with r
 - Audit whether devices are configured according to appropriate template.
 - Export template compliance detailed information to Excel.
 
-> short preview.
+Preview.
 > Collect devices data:
 > ![collect devices data](static/collection.gif) 
 
