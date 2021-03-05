@@ -53,7 +53,7 @@ from django.conf import settings
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
 NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get("NETBOX_DEVICES_CONFIGS_DIR", "/device_configs")
-TIME_ZONE = os.environ.get("TIME_ZONE", "Europe/Moscow")
+TIME_ZONE = os.environ.get("TIME_ZONE", "UTC")
 
 
 def global_collection():

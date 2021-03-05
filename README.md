@@ -12,6 +12,13 @@ A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with r
 - Audit whether devices are configured according to appropriate template.
 - Export template compliance detailed information to Excel.
 
+> short preview.
+> Collect devices data:
+> ![collect devices data](static/collection.gif) 
+
+> Templates compliance
+> ![templates compliance](static/templates.gif)
+
 ## Installation and configuration
 
 >Watch [YouTube](https://www.youtube.com/watch?v=O5kayrkuC1E) video about installation and usage of the plugin
@@ -137,4 +144,29 @@ sudo docker-compose up -d
 
 # Usage
 
-It was a challenge to write down the plugin usage instruction. Now you could check it on [YouTube](https://www.youtube.com/watch?v=O5kayrkuC1E) video about installation and usage of the plugin
+Follow the [YouTube](https://www.youtube.com/watch?v=O5kayrkuC1E) link and to see the full installation and usage instruction.
+
+## Collection
+
+Just add all needed Custom Links and Custom Fields (optionally) and have fun.
+
+## Templates compliance
+
+After plugin is installed, additional menu "Plugin" will appear in top navi panel.
+For templates compliance feature you need to follow this three-step scenario:
+
+- Step1. Add template (e.g. for particular section)
+- Step2. Add a service. Inside service, add service rules, that will match template for particular device roles and device types. 
+- Step3. Attach service to devices.
+
+![compliance_list](static/compliance_list.png)
+
+All matched templates will be merged into one big-boss template, which will be compared with an actual running-config.
+
+## Schedule config collection
+
+If you want to schedule global collection from all devices (e.g. every night at 3 a.m, like all cron-users do.) - you could use API. Just add this line to cron: 
+
+```shell
+curl --location --request POST 'http://NETBOX_IP:8080/api/plugins/config_officer/collection/' --header 'Authorization: Token YOUR_TOKEN' --form 'task="global_collection"'
+```
