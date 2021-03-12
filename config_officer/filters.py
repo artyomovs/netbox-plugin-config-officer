@@ -73,8 +73,6 @@ class ServiceMappingFilter(BaseFilterSet, TenancyFilterSet, CreatedUpdatedFilter
     def search(self, queryset, name, value):
         if not value.strip():
             return queryset
-        with open("/opt/netbox/netbox/1.log", "w") as f:
-            f.write(str(queryset)) 
         return queryset.filter(
             Q(name__icontains=value)
             | Q(asset_tag__icontains=value.strip())
