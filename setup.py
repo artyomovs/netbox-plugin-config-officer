@@ -7,7 +7,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="netbox-plugin-config-officer",
-    version="0.0.2",
+    version="0.0.3",
     description="NetBox plugin that store configuration/diffs, and check compliance with templates",
     long_description=long_description,
     long_description_content_type="text/markdown",

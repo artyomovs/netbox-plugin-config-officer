@@ -61,6 +61,7 @@ git init
 echo hello > hello.txt
 git add .
 git commit -m "Initial"
+chmod 777 -R ../device_configs
 ```
 
 ### 3. Change **netbox** service in docker-compose.yml (do not delete, just add new lines and change image name)

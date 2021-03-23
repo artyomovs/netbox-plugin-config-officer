@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "netbox-plugin-config-officer"
-version = "0.0.1"
+version = "0.0.3"
 description = "NetBox plugin that collect running config from cisco, indicates diffs and check compliance with templates"
 authors = ["Sergei Artemov <artemov.sergey1989@gmail.com>"]
 license = "Apache-2.0"

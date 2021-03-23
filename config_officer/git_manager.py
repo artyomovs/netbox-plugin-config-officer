@@ -39,13 +39,13 @@ def get_file_repo_state(repository_path, filename):
     git_repo = GitRepository(repository_path)
     repo_state = {}
     repo_state["commits_count"] = 0
-    try:
-        file_commits_list = git_repo.git.log("--format=%H", filename).split("\n")
-        file_commits = list(RepositoryMining(repository_path, only_commits=file_commits_list).traverse_commits())
-        file_commits.reverse()
-        repo_state["commits_count"] = len(file_commits)
-    except:
-        pass
+    # try:
+    file_commits_list = git_repo.git.log("--format=%H", filename).split("\n")
+    file_commits = list(RepositoryMining(repository_path, only_commits=file_commits_list).traverse_commits())
+    file_commits.reverse()
+    repo_state["commits_count"] = len(file_commits)
+    # except Exception as e:
+    #     pass
         
     if repo_state["commits_count"] > 0:
         repo_state["last_commit_date"] = file_commits[0].author_date.strftime("%d %b %Y %H:%M")
@@ -60,8 +60,5 @@ def get_file_repo_state(repository_path, filename):
                 {"hash": commit.hash, "msg": commit.msg, "diff": diff, "date": commit.author_date}
             )
     else:
-        repo_state["comment"] = "no commits changes for {filename}"
+        repo_state["comment"] = f"no commits changes for {filename}"
     return repo_state
-
-if __name__ == "__main__":
-    get_file_repo_state("/opt/ipam-data/git/devices_configs", "dv-r1_running.txt")

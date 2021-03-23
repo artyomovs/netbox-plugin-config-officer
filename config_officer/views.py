@@ -486,4 +486,4 @@ def running_config(request, hostname):
         message["status"] = True
         message["running_config"] = running_config
     message["repo_state"] = get_file_repo_state(NETBOX_DEVICES_CONFIGS_DIR, f"{hostname}_running.txt")
-    return render(request, "config_officer/device_runnig_config.html", {"message": message})
+    return render(request, "config_officer/device_running_config.html", {"message": message})
