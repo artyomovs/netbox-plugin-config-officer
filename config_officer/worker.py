@@ -18,6 +18,7 @@ PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
 CF_NAME_COLLECTION_STATUS = PLUGIN_SETTINGS.get("CF_NAME_COLLECTION_STATUS", "collection_status")
 NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get("NETBOX_DEVICES_CONFIGS_DIR", "/device_configs")
 GLOBAL_TASK_INIT_MESSAGE = 'global_collection_task'
+DEFAULT_PLATFORM = 'iosxe'
 
 def get_active_collect_task_count():
     """ Get count of pending collection tasks."""
@@ -55,24 +56,31 @@ def collect_device_config_task(task_id, commit_msg=""):
 
     if not (commit_msg):
         now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        commit_msg = f"{now}"   
+        commit_msg = f"{now}"
 
-    # If needed to fill custom fields   
+    # If needed to fill custom fields
     try:
         device_netbox = collect_task.device
         device_netbox.custom_field_data[CF_NAME_COLLECTION_STATUS] = False
+        platform = device_netbox.platform
+        if platform is None:
+            platform = DEFAULT_PLATFORM
         device_netbox.save()
         ip = str(ipaddress.ip_interface(device_netbox.primary_ip4).ip)
-        device_collect = CollectDeviceData(collect_task, ip=ip, hostname_ipam=str(device_netbox.name))
+        device_collect = CollectDeviceData(collect_task,
+                                            ip=ip,
+                                            hostname_ipam=str(device_netbox.name),
+                                            platform=platform
+                                        )
         device_collect.collect_information()
     except CollectionException as exc:
         collect_task.status = CollectStatusChoices.STATUS_FAILED
         collect_task.failed_reason = exc.reason
         collect_task.message = exc.message
-        collect_task.save()    
+        collect_task.save()
         if get_active_collect_task_count() < 11:    
             get_queue("default").enqueue("config_officer.worker.git_commit_configs_changes", commit_msg)        
-        raise            
+        raise
     except Exception as exc:
         collect_task.status = CollectStatusChoices.STATUS_FAILED
         collect_task.failed_reason = CollectFailChoices.FAIL_GENERAL

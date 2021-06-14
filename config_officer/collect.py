@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 import socket
 import time
-from scrapli.driver.core import IOSXEDriver
+from scrapli.driver.core import IOSXEDriver, NXOSDriver, IOSXRDriver
 from django.conf import settings
 import re
 from netaddr import EUI
@@ -30,7 +30,11 @@ NETBOX_DUAL_SIM_PLATFORM = PLUGIN_SETTINGS.get("NETBOX_DUAL_SIM_PLATFORM", "None
 COLLECT_INTERFACES_DATA = PLUGIN_SETTINGS.get("COLLECT_INTERFACES_DATA", False)
 REGEX_IP = '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
 
-
+PLATFORMS = {
+    "iosxe": IOSXEDriver,
+    "nxos": NXOSDriver,
+    "iosxr": IOSXRDriver
+}
 class DeviceInterface:
     def __init__(self, name, **kwargs):
         self.name = name
@@ -45,7 +49,7 @@ class DeviceInterface:
 class CiscoDevice:
     """Cisco Device object. Functions to work with device actual data."""
 
-    def __init__(self, task):
+    def __init__(self, task, platform="iosxe"):
         self.hostname = ""
         self.pid = ""
         self.sn = ""
@@ -178,7 +182,7 @@ class CiscoDevice:
         if COLLECT_INTERFACES_DATA:
             self.parse_show_interfaces(connection)
         if self.pid in NETBOX_DUAL_SIM_PLATFORM:
-            self.parse_sim_info(connection)        
+            self.parse_sim_info(connection)
 
 
     def update_custom_field(self, cf_name, cf_value):
@@ -191,7 +195,7 @@ class CiscoDevice:
 class CollectDeviceData(CiscoDevice):
     """Object to parse information from Devices and save to NetBox."""
 
-    def __init__(self, collect_task, ip="", hostname_ipam=""):
+    def __init__(self, collect_task, ip="", hostname_ipam="", platform=""):
         super().__init__(task=collect_task)
         self.collect_status = False
         self.hostname_ipam = hostname_ipam
@@ -205,6 +209,7 @@ class CollectDeviceData(CiscoDevice):
             "timeout_ops": 60,
             "ssh_config_file": os.path.dirname(importlib.util.find_spec("config_officer").origin) + "/ssh_config",
         }
+        self.platform = platform
 
     # Check if NetBox and Device data are the same
     def check_netbox_sync(self):
@@ -327,7 +332,7 @@ class CollectDeviceData(CiscoDevice):
                 #     self.task.device.save()
 
                 interface_ipam.save()
-   
+
     def save_running_config_to_file(self, connection, filename):
         """Save show run config to git repository."""
         connection.send_command("terminal length 0")
@@ -340,13 +345,13 @@ class CollectDeviceData(CiscoDevice):
         self.check_reachability()
 
         try:
-            with IOSXEDriver(**self.device) as connection:
+            with PLATFORMS[self.platform](**self.device) as connection:
                 self.get_device_info(connection)
         except Exception:
             self.device["port"] = 23
             self.device["transport"] = "telnet"
             try:
-                with IOSXEDriver(**self.device) as connection:
+                with PLATFORMS[self.platform](**self.device) as connection:
                     self.get_device_info(connection)
             except Exception:
                 raise CollectionException(
@@ -359,5 +364,5 @@ class CollectDeviceData(CiscoDevice):
 
         # save to git repo        
         filename = f"{NETBOX_DEVICES_CONFIGS_DIR}/{self.hostname}_running.txt"
-        with IOSXEDriver(**self.device) as connection:
+        with PLATFORMS[self.platform](**self.device) as connection:
             self.save_running_config_to_file(connection, filename)
