@@ -18,6 +18,7 @@ import importlib
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
 DEVICE_USERNAME = PLUGIN_SETTINGS.get("DEVICE_USERNAME", "")
+DEVICE_SSH_PORT = PLUGIN_SETTINGS.get("DEVICE_SSH_PORT", 22)
 DEVICE_PASSWORD = PLUGIN_SETTINGS.get("DEVICE_PASSWORD", "")
 CF_NAME_SW_VERSION = PLUGIN_SETTINGS.get("CF_NAME_SW_VERSION", "")
 CF_NAME_SSH = PLUGIN_SETTINGS.get("CF_NAME_SSH", "")
@@ -199,7 +200,7 @@ class CollectDeviceData(CiscoDevice):
             "auth_username": DEVICE_USERNAME,
             "auth_password": DEVICE_PASSWORD,
             "auth_strict_key": False,
-            "port": 22,
+            "port": DEVICE_SSH_PORT,
             "timeout_socket": 20,
             "timeout_ops": 60,
             "ssh_config_file": os.path.dirname(importlib.util.find_spec("config_officer").origin) + "/ssh_config",

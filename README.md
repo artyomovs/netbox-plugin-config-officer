@@ -102,6 +102,7 @@ PLUGINS_CONFIG = {
         # Credentials to cisco devices:
         "DEVICE_USERNAME": "cisco",
         "DEVICE_PASSWORD": "cisco",
+        #"DEVICE_SSH_PORT" : 1234 #default - 22
 
         # Mount this directory to NetBox on docker-compose.yml
         "NETBOX_DEVICES_CONFIGS_DIR": "/device_configs",

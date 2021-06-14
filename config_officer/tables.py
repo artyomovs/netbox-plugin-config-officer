@@ -7,7 +7,7 @@ from .models import (
     Template,
     Service
 )
-from tenancy.tables import COL_TENANT
+from tenancy.tables import TenantColumn
 from django_tables2.utils import Accessor
 from dcim.models import Device
 
@@ -262,7 +262,7 @@ class ServiceMappingListTable(BaseTable):
         verbose_name="Service",
         orderable=False,
     )
-    tenant = tables.TemplateColumn(template_code=COL_TENANT)
+    tenant = tables.TemplateColumn(template_code=TenantColumn)
     device_role = ColoredLabelColumn(verbose_name="Role")
     device_type = tables.LinkColumn(
         viewname="dcim:devicetype",

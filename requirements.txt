@@ -1,5 +1,5 @@
-diffios
-scrapli
-GitPython
+diffios==0.0.9
+scrapli==2021.1.30
+GitPython==3.1.17
 PyDriller==1.15.3
-xlsxwriter
+xlsxwriter==1.4.3

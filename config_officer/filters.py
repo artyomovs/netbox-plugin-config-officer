@@ -1,16 +1,16 @@
-from utilities.filters import NameSlugSearchFilterSet
+from utilities.filters import TreeNodeMultipleChoiceFilter
 import django_filters
 from .models import Collection
 from django.db.models import Q
 from dcim.models import DeviceRole, DeviceType
 from .choices import ServiceComplianceChoices
-from utilities.filters import TagFilter, BaseFilterSet
+from netbox.filtersets import PrimaryModelFilterSet
+from extras.filters import TagFilter
 from dcim.models import Device
-from tenancy.filters import TenancyFilterSet
-from extras.filters import CreatedUpdatedFilterSet
+from tenancy.filtersets import TenancyFilterSet
 
 
-class CollectionFilter(NameSlugSearchFilterSet):
+class CollectionFilter(PrimaryModelFilterSet):
     q = django_filters.CharFilter(
         method = 'search'
     )
@@ -26,10 +26,10 @@ class CollectionFilter(NameSlugSearchFilterSet):
             Q(status__icontains=value)
             | Q(failed_reason__icontains=value)
         )
-        return queryset.filter(qs_filter)        
+        return queryset.filter(qs_filter)
 
 
-class ServiceMappingFilter(BaseFilterSet, TenancyFilterSet, CreatedUpdatedFilterSet):
+class ServiceMappingFilter(PrimaryModelFilterSet, TenancyFilterSet):
     """Filter for template-compliance records."""
     q = django_filters.CharFilter(
         method='search',
