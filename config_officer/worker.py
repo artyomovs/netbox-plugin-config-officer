@@ -62,7 +62,7 @@ def collect_device_config_task(task_id, commit_msg=""):
     try:
         device_netbox = collect_task.device
         device_netbox.custom_field_data[CF_NAME_COLLECTION_STATUS] = False
-        platform = device_netbox.platform
+        platform = device_netbox.platform.name
         if platform is None:
             platform = DEFAULT_PLATFORM
         device_netbox.save()

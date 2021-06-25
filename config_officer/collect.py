@@ -17,9 +17,9 @@ from dcim.fields import mac_unix_expanded_uppercase
 import importlib
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
-DEVICE_USERNAME = PLUGIN_SETTINGS.get("DEVICE_USERNAME", "")
+DEVICE_USERNAME = PLUGIN_SETTINGS.get("DEVICE_USERNAME", "cisco")
 DEVICE_SSH_PORT = PLUGIN_SETTINGS.get("DEVICE_SSH_PORT", 22)
-DEVICE_PASSWORD = PLUGIN_SETTINGS.get("DEVICE_PASSWORD", "")
+DEVICE_PASSWORD = PLUGIN_SETTINGS.get("DEVICE_PASSWORD", "cisco")
 CF_NAME_SW_VERSION = PLUGIN_SETTINGS.get("CF_NAME_SW_VERSION", "")
 CF_NAME_SSH = PLUGIN_SETTINGS.get("CF_NAME_SSH", "")
 CF_NAME_LAST_COLLECT_DATE = PLUGIN_SETTINGS.get("CF_NAME_LAST_COLLECT_DATE", "")
@@ -174,11 +174,30 @@ class CiscoDevice:
 
     def get_device_info(self, connection):
         """Gather and parse information from device."""
-        parsed = connection.send_command("show version").textfsm_parse_output()[0]
-        self.hostname = parsed['hostname']
-        self.pid = parsed['hardware'][0]
-        self.sn = parsed['serial'][0]
-        self.sw = parsed['version']
+        if self.platform == 'iosxe':
+            parsed = connection.send_command("show version").textfsm_parse_output()[0]
+            self.hostname = parsed['hostname']
+            self.pid = parsed['hardware'][0]
+            self.sn = parsed['serial'][0]
+            self.sw = parsed['version']
+        elif self.platform == 'nxos':
+            parsed = connection.send_command("show version").textfsm_parse_output()[0]
+            self.hostname = parsed['hostname']
+            self.pid = parsed['platform']
+            self.sn = parsed['serial']
+            self.sw = parsed['os']
+        elif self.platform == 'iosxr':
+            result = connection.send_command("show version").result
+            r_search = re.search(r'\n(.*)uptime', result)
+            if r_search:
+                self.hostname = r_search.group(1)
+            r_search = re.search(r'Version\s(.*)\n', result)
+            if r_search:
+                self.sw = r_search.group(1)
+            self.sn = ''
+            r_search = re.search(r'cisco\s(.*)\sprocessor', result)
+            if r_search:
+                self.pid = r_search.group(1)
         if COLLECT_INTERFACES_DATA:
             self.parse_show_interfaces(connection)
         if self.pid in NETBOX_DUAL_SIM_PLATFORM:
@@ -194,11 +213,13 @@ class CiscoDevice:
 
 class CollectDeviceData(CiscoDevice):
     """Object to parse information from Devices and save to NetBox."""
+    global PLATFORMS
+    global DEFAULT_PLATFORM
 
     def __init__(self, collect_task, ip="", hostname_ipam="", platform=""):
         super().__init__(task=collect_task)
         self.collect_status = False
-        self.hostname_ipam = hostname_ipam
+        self.hostname_ipam = hostname_ipam.strip()
         self.device = {
             "host": ip,
             "auth_username": DEVICE_USERNAME,
@@ -209,11 +230,12 @@ class CollectDeviceData(CiscoDevice):
             "timeout_ops": 60,
             "ssh_config_file": os.path.dirname(importlib.util.find_spec("config_officer").origin) + "/ssh_config",
         }
-        self.platform = platform
+        self.platform = platform if platform in PLATFORMS else "iosxe"
 
     # Check if NetBox and Device data are the same
     def check_netbox_sync(self):
-        if self.hostname_ipam.lower() != self.hostname.lower():
+
+        if self.hostname_ipam.lower().strip() != self.hostname.lower().strip():
             raise CollectionException(
                 reason=CollectFailChoices.FAIL_UPDATE,
                 message=f"Different hostnames in NetBox and device. IPAM: {self.hostname_ipam}. Device: {self.hostname}",
@@ -358,7 +380,8 @@ class CollectDeviceData(CiscoDevice):
         self.check_netbox_sync()
         self.update_in_netbox()
 
-        # save to git repo        
+        # save to git repo
+        self.hostname = self.hostname.strip()
         filename = f"{NETBOX_DEVICES_CONFIGS_DIR}/{self.hostname}_running.txt"
         with PLATFORMS[self.platform](**self.device) as connection:
             self.save_running_config_to_file(connection, filename)
