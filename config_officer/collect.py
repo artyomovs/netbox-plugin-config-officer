@@ -268,10 +268,6 @@ class CollectDeviceData(CiscoDevice):
                         device=self.task.device, name__iexact=k
                     )
 
-                # # add non_compliance tag if the interface out of template's list: 
-                # if k not in template_interfaces:
-                #     interface_ipam.tags.add(NETBOX_NONCOMPLIANCE_TAG)
-
                 # # Delete extra ips from IPAM
                 if hasattr(v, "address"):
                     interface_addresses = [v.address]
