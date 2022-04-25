@@ -26,3 +26,4 @@ setup(
     zip_safe=False,
     url='https://github.com/artyomovs/netbox-plugin-config-officer',
 )
+
