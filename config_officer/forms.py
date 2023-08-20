@@ -1,29 +1,28 @@
 from django import forms
-from utilities.forms import (
-    BootstrapMixin, 
-    DynamicModelMultipleChoiceField,
-    StaticSelect2,
-    APISelectMultiple,
-    StaticSelect2Multiple,
-    TagFilterField
-)
+from netbox.forms import NetBoxModelForm
+from utilities.forms.widgets import APISelectMultiple, DateTimePicker
+from utilities.forms import BootstrapMixin
+from utilities.forms.fields import DynamicModelMultipleChoiceField, TagFilterField
 from .choices import CollectStatusChoices
 from .models import (
-    Collection, 
+    Collection,
     Template,
-    Service,
+    ProvidedService,
     ServiceMapping
 )
 from dcim.models import DeviceRole, DeviceType, Device
 from tenancy.models import Tenant
 from .choices import ServiceComplianceChoices
 
+
+
+
 BLANK_CHOICE = (('', '---------'),)
 
 
-class CollectionFilterForm (BootstrapMixin, forms.ModelForm):
-    """Form fo filtering information about collection run-config tasks."""    
-    
+class CollectionFilterForm (BootstrapMixin, NetBoxModelForm):
+    """Form fo filtering information about collection run-config tasks."""
+
     status = forms.ChoiceField(
         choices=BLANK_CHOICE + CollectStatusChoices.CHOICES,
         required=False,
@@ -38,10 +37,10 @@ class CollectionFilterForm (BootstrapMixin, forms.ModelForm):
 
     class Meta:
         model = Collection
-        fields = ['status', 'failed_reason']
+        fields = ('status', 'failed_reason')
 
 
-class TemplateForm(BootstrapMixin, forms.ModelForm):
+class TemplateForm(BootstrapMixin, NetBoxModelForm):
     name = forms.CharField(
         required=True,
         label = "Name",
@@ -54,12 +53,10 @@ class TemplateForm(BootstrapMixin, forms.ModelForm):
 
     class Meta:
         model = Template
-        fields = [
-            'name', 'description', 'configuration'
-        ]  
+        fields = ('name', 'description', 'configuration')
 
 
-class ServiceForm(BootstrapMixin, forms.ModelForm):
+class ServiceForm(BootstrapMixin, NetBoxModelForm):
     name = forms.CharField(
         required=True,
         label = "Name",
@@ -72,15 +69,13 @@ class ServiceForm(BootstrapMixin, forms.ModelForm):
 
     class Meta:
         model = Template
-        fields = [
-            'name', 'description'
-        ]  
+        fields = ('name', 'description')
 
 
-class ServiceRuleForm(BootstrapMixin, forms.ModelForm):
+class ServiceRuleForm(BootstrapMixin, NetBoxModelForm):
     service = forms.ModelChoiceField(
-        queryset=Service.objects.all(),
-        widget=StaticSelect2()
+        queryset=ProvidedService.objects.all(),
+        widget=BootstrapMixin()
     )
 
     description = forms.CharField(
@@ -91,45 +86,41 @@ class ServiceRuleForm(BootstrapMixin, forms.ModelForm):
     device_role = DynamicModelMultipleChoiceField(
         queryset=DeviceRole.objects.all(),
         required=True,
-    )    
+    )
 
     device_type = DynamicModelMultipleChoiceField(
         queryset=DeviceType.objects.all(),
         required=False,
         label='Model',
         display_field="model",
-        widget=APISelectMultiple(            
+        widget=APISelectMultiple(
         )
-    )        
+    )
 
     template = forms.ModelChoiceField(
         queryset=Template.objects.order_by('name'),
-        widget=StaticSelect2()
-    )    
+        widget=BootstrapMixin()
+    )
 
     class Meta:
         model = Template
-        fields = [
-            'service', 'device_role', 'device_type', 'template', 'description'
-        ]  
+        fields = ('service', 'device_role', 'device_type', 'template', 'description',)
 
 
-class ServiceMappingForm(BootstrapMixin, forms.ModelForm):
+class ServiceMappingForm(BootstrapMixin, NetBoxModelForm):
     service = forms.ModelChoiceField(
-        queryset=Service.objects.all(),
-        widget=StaticSelect2()
+        queryset=ProvidedService.objects.all(),
+        widget=BootstrapMixin()
     )
 
     device = forms.ModelChoiceField(
         queryset=Device.objects.all(),
-        widget=StaticSelect2()
+        widget=BootstrapMixin()
     )
 
     class Meta:
         model = ServiceMapping
-        fields = [
-            'service', 'device'
-        ]  
+        fields = ('service', 'device')
 
 
 class ServiceMappingCreateForm(BootstrapMixin, forms.Form):
@@ -139,17 +130,17 @@ class ServiceMappingCreateForm(BootstrapMixin, forms.Form):
         widget=forms.MultipleHiddenInput()
     )
     service = forms.ModelMultipleChoiceField(
-        queryset=Service.objects.all(),
+        queryset=ProvidedService.objects.all(),
         label='Service'
-    )    
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
-class ServiceMappingFilterForm(BootstrapMixin, forms.ModelForm):
+class ServiceMappingFilterForm(BootstrapMixin, NetBoxModelForm):
     model = Device
-    field_order = ['q', 'status', 'role', 'tenant', 'device_type_id', 'tag']
+    field_order = ('q', 'status', 'role', 'tenant', 'device_type_id', 'tag')
     q = forms.CharField(
         required=False,
         label='Search device or service'
@@ -177,18 +168,17 @@ class ServiceMappingFilterForm(BootstrapMixin, forms.ModelForm):
         label='Model',
         display_field="model",
         widget=APISelectMultiple(
-            
         )
-    )    
+    )
     status = forms.MultipleChoiceField(
         label='Status',
         choices=ServiceComplianceChoices,
         required=False,
-        widget=StaticSelect2Multiple()
+        widget=BootstrapMixin()
     )
 
     tag = TagFilterField(model)
 
     class Meta:
         model = Device
-        fields = ['q', 'status', 'role', 'tenant', 'device_type_id', 'tag']
+        fields = ('q', 'status', 'role', 'tenant', 'device_type_id', 'tag')

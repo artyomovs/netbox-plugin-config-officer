@@ -1,4 +1,4 @@
-"""Models for config_officer plugin."""
+'''Models for config_officer plugin.'''
 
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
@@ -7,17 +7,20 @@ from .choices import (
     ServiceComplianceChoices,
     CollectFailChoices,
     CollectStatusChoices
-    
 )
-from .config_manager import generate_templates_config_for_device
+# from .config_manager import generate_templates_config_for_device
 from django.db.models import Q
+from netbox.models import NetBoxModel
+from django.urls import reverse
 
 
-class Collection(models.Model):
-    """Device Collecthronization (collecting configuration) records."""
+
+
+class Collection(NetBoxModel):
+    """Synchronization attempts records."""
 
     device = models.ForeignKey(
-        to="dcim.Device", on_delete=models.SET_NULL, blank=True, null=True
+        to='dcim.Device', on_delete=models.SET_NULL, blank=True, null=True
     )
     status = models.CharField(
         max_length=255,
@@ -28,36 +31,36 @@ class Collection(models.Model):
     message = models.CharField(max_length=512, blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     failed_reason = models.CharField(max_length=255, choices=CollectFailChoices, null=True)
-    
+
     csv_headers = [
-        "device",
+        'device',
     ]
 
     def __str__(self):
         if not self.device:
-            return "n/a"
+            return 'n/a'
         else:
-            return str(self.device)
+            return f'{str(self.device)} - {self.timestamp}:{self.status}'
 
     class Meta:
-        ordering = ["timestamp"]
+        ordering = ('timestamp', 'device',)
 
 
-class Template(models.Model):
-    """Network device configuration template."""
+class Template(NetBoxModel):
+    '''Network device configuration template.'''
 
     name = models.CharField(max_length=512, blank=True, null=True)
     description = models.CharField(max_length=512, blank=True, null=True)
     configuration = models.TextField(null=True, blank=True)
 
     def get_absolute_url(self):
-        return reverse("plugins:config_officer:template", args=[self.pk])
+        return reverse('plugins:config_officer:template', args=[self.pk])
 
     class Meta:
-        ordering = ["-id"]
+        ordering = ('-id', 'name', 'description',)
 
     def __str__(self):
-        return self.name
+        return f'{self.name}-{self.description}'
 
     def get_services_list(self):
         return list(
@@ -65,14 +68,14 @@ class Template(models.Model):
         )
 
 
-class Service(models.Model):
+class ProvidedService(NetBoxModel):
     """Service, that is provided by device."""
 
     name = models.CharField(max_length=200)
     description = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        ordering = ["-id"]
+        ordering = ('-id', 'name',)
 
     def __str__(self):
         return self.name
@@ -84,7 +87,7 @@ class Service(models.Model):
         return ServiceRule.objects.filter(service=self)
 
     def get_absolute_url(self):
-        return reverse("plugins:config_officer:service", args=[self.pk])
+        return reverse('plugins:config_officer:service', args=[self.pk])
 
     # Get templates, matched with the device
     def get_device_templates(self, device):
@@ -117,7 +120,7 @@ class Service(models.Model):
             else:
                 return templates
 
-    # Count of devices with this 
+    # Count of devices with this service
     def get_devices_count(self):
         return ServiceMapping.objects.filter(service__exact=self).count()
 
@@ -126,24 +129,24 @@ class Service(models.Model):
         return Compliance.objects.filter(device__in=devices, status=ServiceComplianceChoices.STATUS_COMPLIANCE).count()
 
 
-class ServiceRule(models.Model):
-    """Service rule for particular role and type."""
+class ServiceRule(NetBoxModel):
+    '''Service rule for particular role and type.'''
 
-    service = models.ForeignKey(to="Service", on_delete=models.CASCADE, related_name="service_rules")
+    service = models.ForeignKey(to='ProvidedService', on_delete=models.CASCADE, related_name='service_rules')
     description = models.CharField(max_length=512, blank=True, null=True)
-    device_role = models.ManyToManyField(to="dcim.DeviceRole", blank=False)
-    device_type = models.ManyToManyField(to="dcim.DeviceType", blank=True)
-    template = models.ForeignKey(to="Template", on_delete=models.CASCADE, blank=True)
+    device_role = models.ManyToManyField(to='dcim.DeviceRole', blank=False)
+    device_type = models.ManyToManyField(to='dcim.DeviceType', blank=True)
+    template = models.ForeignKey(to='Template', on_delete=models.CASCADE, blank=True)
 
 
-class ServiceMapping(models.Model):
-    """Map service for device."""
+class ServiceMapping(NetBoxModel):
+    '''Map service for device.'''
 
-    device = models.ForeignKey(to="dcim.Device", on_delete=models.CASCADE)
-    service = models.ForeignKey(to="Service", on_delete=models.CASCADE)
+    device = models.ForeignKey(to='dcim.Device', on_delete=models.CASCADE)
+    service = models.ForeignKey(to='ProvidedService', on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"{self.device}:{self.service}"
+        return f'{self.device}:{self.service}'
 
 
 class ServiceManager(models.Manager):
@@ -151,11 +154,11 @@ class ServiceManager(models.Manager):
         return [m.service for m in ServiceMapping.objects.filter(device=self.device)]
 
 
-class Compliance(models.Model):
-    """Model to store compliance status for devices.
-    Templates from all attached services will be merged and compared with running-config."""
+class Compliance(NetBoxModel):
+    '''Model to store compliance status for devices.
+    Templates from all attached services will be merged and compared with running-config.'''
 
-    device = models.OneToOneField(to="dcim.Device", on_delete=models.CASCADE, related_name="compliance")
+    device = models.OneToOneField(to='dcim.Device', on_delete=models.CASCADE, related_name='compliance')
     status = models.CharField(
         max_length=50,
         choices=ServiceComplianceChoices,
@@ -170,14 +173,14 @@ class Compliance(models.Model):
         blank=True,
         null=True,
         default=list,
-        verbose_name="services",
+        verbose_name='services',
     )
 
     def __str__(self):
-        return f"{self.device}:{self.status}:{self.notes}"
+        return f'{self.device}:{self.status}:{self.notes}'
 
     def get_device_templates(self):
-        """Get applicable templates for device."""
+        '''Get applicable templates for device.'''
 
         services = [
             m.service for m in ServiceMapping.objects.filter(device=self.device)
@@ -208,14 +211,14 @@ class Compliance(models.Model):
                 templates.extend([rule.template for rule in device_rules])
         return list(set(templates))
 
-    def get_generated_config(self):
-        self.generated_config = generate_templates_config_for_device(
-            self.get_device_templates()
-        )
-        return self.generated_config
+    # def get_generated_config(self):
+    #     self.generated_config = generate_templates_config_for_device(
+    #         self.get_device_templates()
+    #     )
+    #     return self.generated_config
 
     def get_absolute_url(self):
-        return reverse("plugins:config_officer:compliance", args=[self.pk])
+        return reverse('plugins:config_officer:compliance', args=[self.pk])
 
     def get_services_list_for_device(self):
         return [m.service for m in ServiceMapping.objects.filter(device=self.device)]
