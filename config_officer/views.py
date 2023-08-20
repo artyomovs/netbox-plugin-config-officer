@@ -6,47 +6,17 @@ from django.contrib.auth.mixins import PermissionRequiredMixin
 from dcim.models import Device
 from django_rq import get_queue
 from django.shortcuts import render, get_object_or_404, redirect
-from django_rq import get_queue
 from django.contrib import messages
 from django.urls import reverse
-from netbox.views.generic import (
-    ObjectListView, 
-    ObjectEditView, 
-    BulkDeleteView,
-    ObjectDeleteView
-)
-from .models import (
-    Collection, 
-    Template, 
-    Service,
-    ServiceRule,
-    ServiceMapping,
-    Compliance   
-)
-from .filters import CollectionFilter, ServiceMappingFilter
-from .forms import (
-    CollectionFilterForm, 
-    TemplateForm,
-    ServiceForm,
-    ServiceRuleForm,  
-    ServiceMappingForm,
-    ServiceMappingCreateForm,
-    ServiceMappingFilterForm
-)
-from .tables import (
-    CollectionTable, 
-    TemplateListTable,
-    ServiceListTable,
-    ServiceRuleListTable,
-    ServiceMappingListTable
-)
+from netbox.views import generic
+from . import forms, models, tables, filters
 from .choices import CollectStatusChoices
 from .git_manager import get_device_config, get_config_update_date, get_file_repo_state
 from copy import deepcopy
 from datetime import datetime
 import pytz
-import os 
-import io 
+import os
+import io
 import xlsxwriter
 from django.db.models import Q
 from django.conf import settings
@@ -59,7 +29,7 @@ TIME_ZONE = os.environ.get("TIME_ZONE", "UTC")
 def global_collection():
     """Function for collect all devices running-configs."""
 
-    devices_collecting = Collection.objects.filter(
+    devices_collecting = models.Collection.objects.filter(
         Q(status__iexact=CollectStatusChoices.STATUS_PENDING)
         | Q(status__iexact=CollectStatusChoices.STATUS_RUNNING)
     )
@@ -77,58 +47,23 @@ class GlobalCollectionDeviceConfigs(View):
         return render(request, "config_officer/collection_message.html", {"message": message})
 
 
-class CollectStatusListView(PermissionRequiredMixin, ObjectListView):
+class CollectStatusListView(PermissionRequiredMixin, generic.ObjectListView):
 
 
     """Get status of collection show_running config from devices."""
 
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Collection.objects.all().order_by("-id")
-    filterset = CollectionFilter
-    filterset_form = CollectionFilterForm
-    table = CollectionTable
+    queryset = models.Collection.objects.all().order_by("-id")
+    filterset = filters.CollectionFilter
+    filterset_form = forms.CollectionFilterForm
+    table = tables.CollectionTable
     template_name = "config_officer/collect_configs_list.html"
-    
-    # def post(self, request, *args, **kwargs):
-    #     if "reCollect" in request.POST:
-    #         pk_list = [int(pk) for pk in request.POST.getlist("pk")]
-    #         devices_list = list()
-
-    #         if len(pk_list) == 0:  # if nothing selected
-    #             Collect_failed_list = Collection.objects.filter(
-    #                 status__iexact=OnboardingStatusChoices.STATUS_FAILED
-    #             )
-    #             if len(Collect_failed_list) > 0:
-    #                 for task in Collect_failed_list:
-    #                     devices_list.append(task.device)
-    #         else:
-    #             for task_id in pk_list:
-    #                 devices_list.append(Collection.objects.get(id=task_id).device)
-
-    #         # -remove dublicates
-    #         devices_list = list(dict.fromkeys(devices_list))
-
-    #         if len(devices_list) == 0:
-    #             msg = "Nothing to Collecthronize"
-    #             messages.info(request, msg)
-    #         else:
-    #             count = len(devices_list)
-    #             msg = f"Collecthronizaton with {count} devices was started"
-    #             messages.success(request, msg)
-
-    #         # --start Collect
-    #         get_queue("default").enqueue(
-    #             "Collect_devices.worker.Collect_devices_list", devices_list=devices_list
-    #         )
-
-    #         time.sleep(2)
-    #         return redirect(request.get_full_path())
 
 
-class CollectTaskDelete(PermissionRequiredMixin, BulkDeleteView):
+class CollectTaskDelete(PermissionRequiredMixin, generic.BulkDeleteView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Collection.objects.filter()
-    table = CollectionTable
+    queryset = models.Collection.objects.filter()
+    table = tables.CollectionTable
     default_return_url = "plugin:config_officer:collection_status"
 
 
@@ -144,35 +79,35 @@ def collect_device_config(request, slug):
         except Exception as e:
             message = e
             return render(request, "config_officer/collection_message.html", {"message": message})
-    
 
-class TemplateListView(PermissionRequiredMixin, ObjectListView):
+
+class TemplateListView(PermissionRequiredMixin, generic.ObjectListView):
     """All added templates."""
 
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Template.objects.all().order_by("-id")
-    table = TemplateListTable
+    queryset = models.Template.objects.all().order_by("-id")
+    table = tables.TemplateListTable
     template_name = "config_officer/template_list.html"
 
 
-class TemplateCreateView(PermissionRequiredMixin, ObjectEditView):
+class TemplateCreateView(PermissionRequiredMixin, generic.ObjectEditView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    model = Template
-    model_form = TemplateForm
-    queryset = Template.objects.all()
+    model = models.Template
+    model_form = forms.TemplateForm
+    queryset = models.Template.objects.all()
     default_return_url = 'plugins:config_officer:template_list'
 
 
-class TemplateBulkDeleteView(PermissionRequiredMixin, BulkDeleteView):
+class TemplateBulkDeleteView(PermissionRequiredMixin, generic.BulkDeleteView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Template.objects.filter()
-    table = TemplateListTable
+    queryset = models.Template.objects.filter()
+    table = tables.TemplateListTable
     default_return_url = "plugin:config_officer:template_list"
 
 
 class TemplateView(PermissionRequiredMixin, View):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Template.objects.all()
+    queryset = models.Template.objects.all()
 
     def get(self, request, pk):
         template = get_object_or_404(self.queryset, pk=pk)
@@ -190,35 +125,35 @@ class TemplateEditView(TemplateCreateView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
 
 
-class TemplateDeleteView(PermissionRequiredMixin, ObjectDeleteView):
+class TemplateDeleteView(PermissionRequiredMixin, generic.ObjectDeleteView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Template.objects.all()
-    default_return_url = 'plugins:config_officer:template_list'        
+    queryset = models.Template.objects.all()
+    default_return_url = 'plugins:config_officer:template_list'
 
 
-class ServiceListView(PermissionRequiredMixin, ObjectListView):
+class ServiceListView(PermissionRequiredMixin, generic.ObjectListView):
     """Device services list."""
 
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Service.objects.all().order_by("-id")
-    table = ServiceListTable
+    queryset = models.Service.objects.all().order_by("-id")
+    table = tables.ServiceListTable
     template_name = "config_officer/service_list.html"
 
 
-class ServiceCreateView(PermissionRequiredMixin, ObjectEditView):
+class ServiceCreateView(PermissionRequiredMixin, generic.ObjectEditView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    model = Service
-    queryset = Service.objects.all()
-    model_form = ServiceForm
-    default_return_url = 'plugins:config_officer:service_list'          
+    model = models.Service
+    queryset = models.Service.objects.all()
+    model_form = forms.ServiceForm
+    default_return_url = 'plugins:config_officer:service_list'
 
 
-class ServiceBulkDeleteView(PermissionRequiredMixin, BulkDeleteView):
+class ServiceBulkDeleteView(PermissionRequiredMixin, generic.BulkDeleteView):
     """Delete selected service."""
-    
+
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Service.objects.filter()
-    table = ServiceListTable
+    queryset = models.Service.objects.filter()
+    table = tables.ServiceListTable
     default_return_url = "plugin:config_officer:service_list"
 
 
@@ -226,20 +161,20 @@ class ServiceEditView(ServiceCreateView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
 
 
-class ServiceDeleteView(PermissionRequiredMixin, ObjectDeleteView):
+class ServiceDeleteView(PermissionRequiredMixin, generic.ObjectDeleteView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    model = Service
-    default_return_url = 'plugins:config_officer:service_list'        
+    model = models.Service
+    default_return_url = 'plugins:config_officer:service_list'
 
 
 class ServiceView(PermissionRequiredMixin, View):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Service.objects.all()
+    queryset = models.Service.objects.all()
 
     def get(self, request, pk):
         service = get_object_or_404(self.queryset, pk=pk)
 
-        service_rules = ServiceRule.objects.filter(service=service)
+        service_rules = models.ServiceRule.objects.filter(service=service)
         return render(
             request,
             "config_officer/service_view.html",
@@ -250,18 +185,18 @@ class ServiceView(PermissionRequiredMixin, View):
         )
 
 
-class ServiceRuleListView(PermissionRequiredMixin, ObjectListView):
+class ServiceRuleListView(PermissionRequiredMixin, generic.ObjectListView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = ServiceRule.objects.all().order_by("service")
-    table = ServiceRuleListTable
+    queryset = models.ServiceRule.objects.all().order_by("service")
+    table = tables.ServiceRuleListTable
     template_name = "config_officer/service_rule_list.html"
 
 
-class ServiceRuleCreateView(PermissionRequiredMixin, ObjectEditView):
+class ServiceRuleCreateView(PermissionRequiredMixin, generic.ObjectEditView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    model = ServiceRule
-    queryset = ServiceRule.objects.all()
-    model_form = ServiceRuleForm
+    model = models.ServiceRule
+    queryset = models.ServiceRule.objects.all()
+    model_form = forms.ServiceRuleForm
     default_return_url = 'plugins:config_officer:service_rules_list'
 
 
@@ -269,17 +204,17 @@ class ServiceRuleEditView(ServiceRuleCreateView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
 
 
-class ServiceRuleDeleteView(PermissionRequiredMixin, ObjectDeleteView):
+class ServiceRuleDeleteView(PermissionRequiredMixin, generic.ObjectDeleteView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    model = ServiceRule
-    default_return_url = 'plugins:config_officer:service_rules_list'        
+    model = models.ServiceRule
+    default_return_url = 'plugins:config_officer:service_rules_list'
 
 
 class ComplianceView(PermissionRequiredMixin, View):
     """Compliance details view for device."""
 
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Compliance.objects.all()
+    queryset = models.Compliance.objects.all()
 
     def get(self, request, device):
         record = get_object_or_404(self.queryset, device=device)
@@ -296,15 +231,15 @@ class ComplianceView(PermissionRequiredMixin, View):
         )
 
 
-class ServiceMappingListView(PermissionRequiredMixin, ObjectListView):
-    """Assign service to device and check compliance status table view.""" 
+class ServiceMappingListView(PermissionRequiredMixin, models.ObjectListView):
+    """Assign service to device and check compliance status table view."""
 
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    queryset = Device.objects.all()
-    filterset = ServiceMappingFilter
-    filterset_form = ServiceMappingFilterForm
-    table = ServiceMappingListTable
-    template_name = "config_officer/service_mapping_list.html"    
+    queryset = models.Device.objects.all()
+    filterset = filters.ServiceMappingFilter
+    filterset_form = forms.ServiceMappingFilterForm
+    table = tables.ServiceMappingListTable
+    template_name = "config_officer/service_mapping_list.html"
 
     def export_to_excel(self):
         output = io.BytesIO()
@@ -346,7 +281,7 @@ class ServiceMappingListView(PermissionRequiredMixin, ObjectListView):
                     '',
                     '',
                 ]
-                    
+
             data.append(k)
             w = list()
             for i in k:
@@ -375,36 +310,35 @@ class ServiceMappingListView(PermissionRequiredMixin, ObjectListView):
         output.seek(0)
         return output
 
-    def post(self, request, *args, **kwargs):        
+    def post(self, request, *args, **kwargs):
         """POST from services-devices mappings view."""
 
         # Assign service to devices from table.
         if '_create' in request.POST:
-            s = ServiceMappingCreateForm(request.POST)
+            s = forms.ServiceMappingCreateForm(request.POST)
             if s.is_valid():
                 data = deepcopy(s.cleaned_data)
-                    
+
                 pk_list = [int(pk) for pk in request.POST.getlist('pk')]
-                selected_devices = Device.objects.filter(pk__in=pk_list)       
-                
+                selected_devices = Device.objects.filter(pk__in=pk_list)
                 services = data['service']
                 if len(services) == 0:
                     messages.error(request, 'No services selected')
                 else:
                     # Delete all records about selected device from services and compliance tables                
                     # ServiceMapping.objects.filter(device__in=selected_devices).delete()                
-                    Compliance.objects.filter(device__in=selected_devices).delete()                   
-                    for device in data['pk']:  
-                        ServiceMapping.objects.filter(device=device).delete()     
+                    models.Compliance.objects.filter(device__in=selected_devices).delete()                   
+                    for device in data['pk']:
+                        models.ServiceMapping.objects.filter(device=device).delete()     
                         for service in services:
-                            ServiceMapping.objects.update_or_create(device=device, service=service)                                          
+                            models.ServiceMapping.objects.update_or_create(device=device, service=service)                                          
                         # Check compliance right after services are assigned:
                         get_queue("default").enqueue("config_officer.worker.check_device_config_compliance", device=device)
 
                     messages.success(request, f'{services} were attached to {len(data["pk"])} devices')
             else:
                 messages.error(request, 'Error form is not valid')
-        return redirect(request.get_full_path())    
+        return redirect(request.get_full_path())
 
     def get(self, request, *args, **kwargs):
         if 'to_excel' in request.GET.keys():
@@ -416,21 +350,21 @@ class ServiceMappingListView(PermissionRequiredMixin, ObjectListView):
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
 
-        return super().get(request, *args, **kwargs)                
+        return super().get(request, *args, **kwargs)
 
 
-class ServiceMappingCreateView(PermissionRequiredMixin, ObjectEditView):
+class ServiceMappingCreateView(PermissionRequiredMixin, generic.ObjectEditView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    model = ServiceMapping
-    queryset = ServiceMapping.objects.all()
-    model_form = ServiceMappingForm
-    default_return_url = 'plugins:config_officer:service_mapping_list'      
+    model = models.ServiceMapping
+    queryset = models.ServiceMapping.objects.all()
+    model_form = forms.ServiceMappingForm
+    default_return_url = 'plugins:config_officer:service_mapping_list'
 
 
-class ServiceMappingDeleteView(PermissionRequiredMixin, ObjectDeleteView):
+class ServiceMappingDeleteView(PermissionRequiredMixin, generic.ObjectDeleteView):
     permission_required = ('dcim.view_site', 'dcim.view_device')
-    model = ServiceMapping
-    default_return_url = 'plugins:config_officer:service_mapping_list'     
+    model = models.ServiceMapping
+    default_return_url = 'plugins:config_officer:service_mapping_list'
 
 
 class ServiceAssign(PermissionRequiredMixin, View):
@@ -441,16 +375,16 @@ class ServiceAssign(PermissionRequiredMixin, View):
             pk_list = [int(pk) for pk in request.POST.getlist('pk')]
 
         selected_devices = Device.objects.filter(pk__in=pk_list)
-        
+
         if not selected_devices:
             messages.warning(request, 'No devices were selected.')
             return redirect(reverse('plugins:config_officer:service_mapping_list'))
-        
+
         return render(request, 'generic/object_bulk_add_component.html', {
-            'form': ServiceMappingCreateForm(initial={'pk': pk_list}),
+            'form': forms.ServiceMappingCreateForm(initial={'pk': pk_list}),
             'parent_model_name': 'Devices',
             'model_name': 'Service',
-            'table': ServiceMappingListTable(selected_devices),
+            'table': tables.ServiceMappingListTable(selected_devices),
             'return_url': reverse('plugins:config_officer:service_mapping_list'),
         })
 
@@ -466,12 +400,12 @@ class ServiceDetach(PermissionRequiredMixin, View):
         if not selected_devices:
             messages.warning(request, 'No devices were selected.')
             return redirect(reverse('plugins:config_officer:service_mapping_list'))
-                
-        ServiceMapping.objects.filter(device__in=selected_devices).delete()
-        Compliance.objects.filter(device__in=selected_devices).delete()
+
+        models.ServiceMapping.objects.filter(device__in=selected_devices).delete()
+        models.Compliance.objects.filter(device__in=selected_devices).delete()
         get_queue("default").enqueue("config_officer.worker.upload_compliance_status_into_influxdb")
         messages.success(request, f'{len(selected_devices)} devices were de-attached from service.')
-        return redirect(reverse('plugins:config_officer:service_mapping_list'))        
+        return redirect(reverse('plugins:config_officer:service_mapping_list'))
 
 
 def running_config(request, hostname):
