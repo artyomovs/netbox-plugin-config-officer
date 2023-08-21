@@ -2,11 +2,7 @@
 
 import django_tables2 as tables
 from netbox.tables import NetBoxTable, ToggleColumn, ColoredLabelColumn, TagColumn
-from .models import (
-    Collection,
-    Template,
-    ProvidedService
-)
+from .models import Collection, Template, ProvidedService
 from tenancy.tables import TenantColumn
 from django_tables2.utils import Accessor
 from dcim.models import Device
@@ -130,33 +126,33 @@ COMPLIANCE_NOTES = """
 class CollectionTable(NetBoxTable):
     pk = ToggleColumn()
     device = tables.LinkColumn(
-        verbose_name='Hostname',
+        verbose_name="Hostname",
     )
 
     status = tables.TemplateColumn(
         template_code=TASK_STATUS,
-        verbose_name='Status',
+        verbose_name="Status",
     )
 
     failed_reason = tables.TemplateColumn(
         template_code=TASK_FAILED_REASON,
-        verbose_name='Failed Reason',
+        verbose_name="Failed Reason",
     )
 
     message = tables.TemplateColumn(
         template_code=MESSAGE,
-        verbose_name='Message',
+        verbose_name="Message",
     )
 
     class Meta(NetBoxTable.Meta):
         model = Collection
         fields = (
-            'pk',
-            'timestamp',
-            'device',
-            'status',
-            'failed_reason',
-            'message',
+            "pk",
+            "timestamp",
+            "device",
+            "status",
+            "failed_reason",
+            "message",
         )
 
 
@@ -214,7 +210,6 @@ class ServiceListTable(NetBoxTable):
         orderable=False,
     )
 
-
     class Meta(NetBoxTable.Meta):
         model = ProvidedService
         fields = ("name", "description", "devices_count", "rules_count")
@@ -245,7 +240,6 @@ class ServiceRuleListTable(NetBoxTable):
         verbose_name="Description",
     )
 
-
     class Meta(NetBoxTable.Meta):
         model = ProvidedService
         fields = ("service", "device_role", "device_type", "template", "description")
@@ -254,8 +248,9 @@ class ServiceRuleListTable(NetBoxTable):
 class ServiceMappingListTable(NetBoxTable):
     pk = ToggleColumn()
     name = tables.TemplateColumn(
-        order_by=("name",), template_code=SERVICE_MAPPING_DEVICE_LINK,
-        verbose_name='Device'
+        order_by=("name",),
+        template_code=SERVICE_MAPPING_DEVICE_LINK,
+        verbose_name="Device",
     )
     service = tables.TemplateColumn(
         template_code=ATTACHED_SERVICES_LIST,
@@ -293,5 +288,5 @@ class ServiceMappingListTable(NetBoxTable):
             "device_type",
             "tags",
             "status",
-            "notes"
+            "notes",
         )
