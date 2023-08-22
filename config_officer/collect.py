@@ -32,7 +32,7 @@ NETBOX_DUAL_SIM_PLATFORM = PLUGIN_SETTINGS.get("NETBOX_DUAL_SIM_PLATFORM", "None
 COLLECT_INTERFACES_DATA = PLUGIN_SETTINGS.get("COLLECT_INTERFACES_DATA", False)
 REGEX_IP = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
 
-PLATFORMS = {"iosxe": IOSXEDriver, "nxos": NXOSDriver, "iosxr": IOSXRDriver}
+PLATFORMS = {"iosxe": IOSXEDriver, "iosxe": IOSXEDriver, "nxos": NXOSDriver, "iosxr": IOSXRDriver}
 
 
 class DeviceInterface:
@@ -61,12 +61,10 @@ class CiscoDevice:
     def check_reachability(self):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(self.device["timeout_socket"])
                 s.connect((self.device["host"], 22))
         except Exception:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.settimeout(self.device["timeout_socket"])
                     s.connect((self.device["host"], 23))
             except Exception:
                 raise CollectionException(
@@ -224,9 +222,6 @@ class CollectDeviceData(CiscoDevice):
             "auth_username": DEVICE_USERNAME,
             "auth_password": DEVICE_PASSWORD,
             "auth_strict_key": False,
-            "port": DEVICE_SSH_PORT,
-            "timeout_socket": 20,
-            "timeout_ops": 60,
             "ssh_config_file": os.path.dirname(
                 importlib.util.find_spec("config_officer").origin
             )
@@ -392,8 +387,6 @@ class CollectDeviceData(CiscoDevice):
             with PLATFORMS[self.platform](**self.device) as connection:
                 self.get_device_info(connection)
         except Exception:
-            self.device["port"] = 23
-            self.device["transport"] = "telnet"
             try:
                 with PLATFORMS[self.platform](**self.device) as connection:
                     self.get_device_info(connection)
