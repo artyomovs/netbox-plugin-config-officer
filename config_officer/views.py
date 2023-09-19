@@ -56,16 +56,22 @@ class CollectStatusListView(generic.ObjectListView):
 
     """Get status of collection show_running config from devices."""
 
-    permission_required = ("dcim.view_site", "dcim.view_device")
     queryset = models.Collection.objects.all().order_by("-id")
     filterset = filters.CollectionFilter
     filterset_form = forms.CollectionFilterForm
     table = tables.CollectionTable
-    template_name = "config_officer/collect_configs_list.html"
+    # template_name = "config_officer/collect_configs_list.html"
+
+
+class CollectStatusBulkEditView(generic.BulkEditView):
+    queryset = models.Collection.objects.all().order_by("-id")
+    filterset = filters.CollectionFilter
+    filterset_form = forms.CollectionFilterForm
+    table = tables.CollectionTable
 
 
 class CollectTaskDelete(generic.BulkDeleteView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+
     queryset = models.Collection.objects.filter()
     table = tables.CollectionTable
     default_return_url = "plugin:config_officer:collection_status"
@@ -94,14 +100,14 @@ def collect_device_config(request, slug):
 class TemplateListView(generic.ObjectListView):
     """All added templates."""
 
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = models.Template.objects.all().order_by("-id")
     table = tables.TemplateListTable
     template_name = "config_officer/template_list.html"
 
 
 class TemplateCreateView(generic.ObjectEditView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     model = models.Template
     model_form = forms.TemplateForm
     queryset = models.Template.objects.all()
@@ -109,14 +115,14 @@ class TemplateCreateView(generic.ObjectEditView):
 
 
 class TemplateBulkDeleteView(generic.BulkDeleteView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = models.Template.objects.filter()
     table = tables.TemplateListTable
     default_return_url = "plugin:config_officer:template_list"
 
 
 class TemplateView(View):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = models.Template.objects.all()
 
     def get(self, request, pk):
@@ -132,11 +138,11 @@ class TemplateView(View):
 
 
 class TemplateEditView(TemplateCreateView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    queryset = models.Template.objects.all()
 
 
 class TemplateDeleteView(generic.ObjectDeleteView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = models.Template.objects.all()
     default_return_url = "plugins:config_officer:template_list"
 
@@ -144,14 +150,14 @@ class TemplateDeleteView(generic.ObjectDeleteView):
 class ServiceListView(generic.ObjectListView):
     """Device services list."""
 
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = models.ProvidedService.objects.all().order_by("-id")
     table = tables.ServiceListTable
     template_name = "config_officer/service_list.html"
 
 
 class ServiceCreateView(generic.ObjectEditView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     model = models.ProvidedService
     queryset = models.ProvidedService.objects.all()
     model_form = forms.ServiceForm
@@ -161,24 +167,24 @@ class ServiceCreateView(generic.ObjectEditView):
 class ServiceBulkDeleteView(generic.BulkDeleteView):
     """Delete selected service."""
 
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = models.ProvidedService.objects.filter()
     table = tables.ServiceListTable
     default_return_url = "plugin:config_officer:service_list"
 
 
 class ServiceEditView(ServiceCreateView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    queryset = models.Template.objects.all()
 
 
 class ServiceDeleteView(generic.ObjectDeleteView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     model = models.ProvidedService
     default_return_url = "plugins:config_officer:service_list"
 
 
 class ServiceView(View):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = models.ProvidedService.objects.all()
 
     def get(self, request, pk):
@@ -193,14 +199,14 @@ class ServiceView(View):
 
 
 class ServiceRuleListView(generic.ObjectListView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = models.ServiceRule.objects.all().order_by("service")
     table = tables.ServiceRuleListTable
     template_name = "config_officer/service_rule_list.html"
 
 
 class ServiceRuleCreateView(generic.ObjectEditView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     model = models.ServiceRule
     queryset = models.ServiceRule.objects.all()
     model_form = forms.ServiceRuleForm
@@ -208,11 +214,11 @@ class ServiceRuleCreateView(generic.ObjectEditView):
 
 
 class ServiceRuleEditView(ServiceRuleCreateView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    model = models.ServiceRule
 
 
 class ServiceRuleDeleteView(generic.ObjectDeleteView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     model = models.ServiceRule
     default_return_url = "plugins:config_officer:service_rules_list"
 
@@ -220,7 +226,7 @@ class ServiceRuleDeleteView(generic.ObjectDeleteView):
 class ComplianceView(View):
     """Compliance details view for device."""
 
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = models.Compliance.objects.all()
 
     def get(self, request, device):
@@ -245,7 +251,7 @@ class ComplianceView(View):
 class ServiceMappingListView(generic.ObjectListView):
     """Assign service to device and check compliance status table view."""
 
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     queryset = Device.objects.all()
     filterset = filters.ServiceMappingFilter
     filterset_form = forms.ServiceMappingFilterForm
@@ -378,7 +384,7 @@ class ServiceMappingListView(generic.ObjectListView):
 
 
 class ServiceMappingCreateView(generic.ObjectEditView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     model = models.ServiceMapping
     queryset = models.ServiceMapping.objects.all()
     model_form = forms.ServiceMappingForm
@@ -386,13 +392,13 @@ class ServiceMappingCreateView(generic.ObjectEditView):
 
 
 class ServiceMappingDeleteView(generic.ObjectDeleteView):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
     model = models.ServiceMapping
     default_return_url = "plugins:config_officer:service_mapping_list"
 
 
 class ServiceAssign(View):
-    permission_required = ("dcim.view_site", "dcim.view_device")
+    
 
     def post(self, request):
         if "_device" in request.POST:

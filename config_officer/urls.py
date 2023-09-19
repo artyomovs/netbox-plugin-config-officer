@@ -15,20 +15,26 @@ urlpatterns = [
         views.CollectStatusListView.as_view(),
         name="collection_status",
     ),
+
     path(
         "collect_device_config/<slug:slug>/",
         views.collect_device_config,
         name="collect_device_config",
     ),
     path(
-        "collection_task_delete/",
+        "collection/delete/<int:pk>",
         views.CollectTaskDelete.as_view(),
-        name="collection_task_delete",
+        name="collection_delete",
     ),
     path(
-        "pet/<int:pk>/changelog/",
+        "collection/edit/<int:pk>",
+        views.CollectStatusBulkEditView.as_view(),
+        name="collection_edit",
+    ),
+    path(
+        "collection/<int:pk>/changelog/",
         ObjectChangeLogView.as_view(),
-        name="collection_logs",
+        name="collection_changelog",
         kwargs={"model": models.Collection},
     ),
     # Templates
