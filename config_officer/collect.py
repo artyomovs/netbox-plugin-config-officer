@@ -63,14 +63,10 @@ class CiscoDevice:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.device["host"], 22))
         except Exception:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.connect((self.device["host"], 23))
-            except Exception:
-                raise CollectionException(
-                    reason=CollectFailChoices.FAIL_CONNECT,
-                    message="Device unreachable",
-                )
+            raise CollectionException(
+                reason=CollectFailChoices.FAIL_CONNECT,
+                message="Device unreachable",
+            )
         time.sleep(1)
 
     # Get interfaces information (IP, MTU, etc.)
@@ -203,8 +199,9 @@ class CiscoDevice:
     def update_custom_field(self, cf_name, cf_value):
         """Update netbox custom_field value."""
         device_netbox = self.task.device
-        device_netbox.custom_field_data[cf_name] = cf_value
-        device_netbox.save()
+        if cf_name in list(device_netbox.custom_field_data.keys()):
+            device_netbox.custom_field_data[cf_name] = cf_value
+            device_netbox.save()
 
 
 class CollectDeviceData(CiscoDevice):
@@ -246,7 +243,6 @@ class CollectDeviceData(CiscoDevice):
     def update_in_netbox(self):
         """Update information in NetBox."""
         # Custom fields
-        self.update_custom_field(CF_NAME_SSH, self.device["port"] == 22)
         self.update_custom_field(CF_NAME_SW_VERSION, self.sw.upper())
         self.update_custom_field(
             CF_NAME_LAST_COLLECT_DATE, datetime.now(pytz.timezone(TIME_ZONE)).date()

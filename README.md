@@ -59,6 +59,8 @@ sudo docker build -t netbox-myplugins .
 mkdir ~/netbox/netbox-docker/device_configs && cd "$_"
 git init
 echo hello > hello.txt
+git config user.email "netbox@netbox.local"
+git config config.name "netbox"
 git add .
 git commit -m "Initial"
 chmod 777 -R ../device_configs
