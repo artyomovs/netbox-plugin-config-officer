@@ -1,51 +1,145 @@
-{% extends 'base.html' %}
-{% load buttons %}
+{% extends 'base/layout.html' %}
 
 {% block content %}
-    <div>    
-        <span class="text-warning"> <i class="fa fa-code fa-2x"></i></span>
-        <span class="text-primary">{{ message.repo_state.commits_count }} changes have been made since           
-        {{ message.repo_state.first_commit_date }}. Last change:</span> <span class="text-success">{{ message.repo_state.last_commit_date }}</span>
-        <table class="table table-borderless">
-            <thead>
-                <tr>
-                <th scope="col" style="width: 70%" class="text-center">running configuration</th>
-                <th scope="col" style="width: 30%" class="text-center">last diffs</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                <td>
+<div class="container mt-4">
+    <div class="text-dark">
+        <h4 class="text-primary">
+            {{ message.repo_state.commits_count }} changes were made from {{ message.repo_state.first_commit_date }}
+        </h4>
+        <p class="mb-0">
+            <span class="text-success">Last change: {{ message.repo_state.last_commit_date }}</span>
+        </p>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header bg-primary text-white text-center">
+                    Running Configuration
+                </div>
+                <div class="card-body">
                     {% if message.status == True %}
-                        <pre><code>{{ message.running_config|safe }}</code></pre>
+                    <style>
+                        #configTextarea {
+                            width: 100%;
+                            height: 1500px;
+                            resize: none;
+                            overflow: auto;
+                            background-color: transparent;
+                            font-family: monospace;
+                            color: #333;
+                            scrollbar-width: thin;
+                            scrollbar-color: #333 #888;
+                            border: none;
+                            outline: none;
+                            font-size: 16px;
+                        }
+
+                        #configTextarea::-webkit-scrollbar {
+                            width: 10px;
+                        }
+
+                        #configTextarea::-webkit-scrollbar-track {
+                            background: transparent;
+                        }
+
+                        #configTextarea::-webkit-scrollbar-thumb {
+                            background-color: #888;
+                            border-radius: 5px;
+                            border: 2px solid transparent;
+                        }
+                    </style>
+                    <textarea id="configTextarea" readonly>{{ message.running_config|safe }}</textarea>
                     {% else %}
-                        <div class="alert alert-danger" role="alert">
-                            {{ message.comment }}
-                        </div>
-                    {% endif %}             
-                </td>
-                <td>
+                    <div class="alert alert-danger" role="alert">
+                        {{ message.comment }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header bg-primary text-white text-center">
+                    Last Diffs
+                </div>
+                <div class="card-body">
                     {% for commit in message.repo_state.commits %}
-                        {{ commit.date }} | {{ commit.hash }}
-                        <div class="card">
-                            <div class="badge badge-primary text-wrap text-success">
-                                {{ commit.date }} | {{ commit.hash }}
-                            </div>
-                            
+                    <div class="card mb-2">
+                        <div class="card-header bg-success text-white">
+                            {{ commit.date }} | {{ commit.hash }}
                         </div>
                         <div class="card-body">
-                            {% if commit.diff|length > 1000 %}
-                                <button type="button" id='button_collapse' class="btn btn-link collapsed text-dark" data-toggle="collapse" data-target=#input_area_{{ commit.hash }}>Show/hide</button>
-                                <div id=input_area_{{ commit.hash }} class="collapse">
-                                    <pre><samp><p class="card-text text-info">{{ commit.diff }}</p></samp></pre>
-                                </div>
-                            {% else %}
-                                <pre><samp><p class="card-text text-info">{{ commit.diff }}</p></samp></pre>
-                            {% endif %}
+                            <!-- Style for commitTextarea class -->
+                            <style>
+                                .commitTextarea {
+                                    width: 100%;
+                                    height: 500px;
+                                    resize: none;
+                                    overflow: auto;
+                                    background-color: transparent;
+                                    font-family: monospace;
+                                    font-size: 14px;
+                                    color: #154;
+                                    scrollbar-width: thin;
+                                    scrollbar-color: #333 #888;
+                                    border: none;
+                                    outline: none;
+                                }
+
+                                .commitTextarea::-webkit-scrollbar {
+                                    width: 10px;
+                                }
+
+                                .commitTextarea::-webkit-scrollbar-track {
+                                    background: transparent;
+                                }
+
+                                .commitTextarea::-webkit-scrollbar-thumb {
+                                    background-color: #888;
+                                    border-radius: 5px;
+                                    border: 2px solid transparent;
+                                }
+
+                                .collapse-button {
+                                    display: block;
+                                    cursor: pointer;
+                                    color: blue;
+                                }
+                            </style>
+                            <pre id="commitTextarea_{{ commit.hash }}" class="commitTextarea">{{ commit.diff }}</pre>
+                            <script>
+                                function toggleTextarea(id) {
+                                    var textarea = document.getElementById("commitTextarea_" + id);
+                                    if (textarea.style.display === "none" || textarea.style.display === "") {
+                                        textarea.style.display = "block";
+                                    } else {
+                                        textarea.style.display = "none";
+                                    }
+                                }
+
+                                // Function to format lines based on Git-style diff
+                                function formatGitDiff(id) {
+                                    var textarea = document.getElementById("commitTextarea_" + id);
+                                    var lines = textarea.textContent.split('\n');
+                                    for (var i = 0; i < lines.length; i++) {
+                                        if (lines[i].startsWith('+')) {
+                                            lines[i] = '<span style="color: green;">' + lines[i] + '</span>';
+                                        } else if (lines[i].startsWith('-')) {
+                                            lines[i] = '<span style="color: red;">' + lines[i] + '</span>';
+                                        }
+                                    }
+                                    textarea.innerHTML = lines.join('\n');
+                                }
+                                formatGitDiff('{{ commit.hash }}');
+                            </script>
                         </div>
+                    </div>
                     {% endfor %}
-                </td>
-                </tr>        
-        </table>
-    </div> 
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

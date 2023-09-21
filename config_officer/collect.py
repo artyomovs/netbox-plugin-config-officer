@@ -24,17 +24,17 @@ CF_NAME_SW_VERSION = PLUGIN_SETTINGS.get("CF_NAME_SW_VERSION", "")
 CF_NAME_SSH = PLUGIN_SETTINGS.get("CF_NAME_SSH", "")
 CF_NAME_LAST_COLLECT_DATE = PLUGIN_SETTINGS.get("CF_NAME_LAST_COLLECT_DATE", "")
 CF_NAME_LAST_COLLECT_TIME = PLUGIN_SETTINGS.get("CF_NAME_LAST_COLLECT_TIME", "")
-NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get("NETBOX_DEVICES_CONFIGS_DIR", "/device_configs")
+NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get(
+    "NETBOX_DEVICES_CONFIGS_DIR", "/device_configs"
+)
 TIME_ZONE = os.environ.get("TIME_ZONE", "UTC")
 NETBOX_DUAL_SIM_PLATFORM = PLUGIN_SETTINGS.get("NETBOX_DUAL_SIM_PLATFORM", "None")
 COLLECT_INTERFACES_DATA = PLUGIN_SETTINGS.get("COLLECT_INTERFACES_DATA", False)
-REGEX_IP = '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
+REGEX_IP = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
 
-PLATFORMS = {
-    "iosxe": IOSXEDriver,
-    "nxos": NXOSDriver,
-    "iosxr": IOSXRDriver
-}
+PLATFORMS = {"iosxe": IOSXEDriver, "iosxe": IOSXEDriver, "nxos": NXOSDriver, "iosxr": IOSXRDriver}
+
+
 class DeviceInterface:
     def __init__(self, name, **kwargs):
         self.name = name
@@ -61,18 +61,12 @@ class CiscoDevice:
     def check_reachability(self):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(self.device["timeout_socket"])
                 s.connect((self.device["host"], 22))
         except Exception:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.settimeout(self.device["timeout_socket"])
-                    s.connect((self.device["host"], 23))
-            except Exception:
-                raise CollectionException(
-                    reason=CollectFailChoices.FAIL_CONNECT,
-                    message="Device unreachable",
-                )
+            raise CollectionException(
+                reason=CollectFailChoices.FAIL_CONNECT,
+                message="Device unreachable",
+            )
         time.sleep(1)
 
     # Get interfaces information (IP, MTU, etc.)
@@ -87,14 +81,14 @@ class CiscoDevice:
 
         ifaces = re.split(r"\n(?=\S)", outputs[0].result)
         for iface in ifaces:
-            r = re.match(fr"^(\S+)\s+({REGEX_IP})", iface)
+            r = re.match(rf"^(\S+)\s+({REGEX_IP})", iface)
             if r:
                 self.interfaces.setdefault(
                     r.group(1), DeviceInterface(name=r.group(1), ip=r.group(2))
                 )
                 if r.group(2) == self.device["host"]:
                     self.mgmt_if = r.group(1)
-            r = re.match(fr"^(\S+)\s+(unassigned)", iface)
+            r = re.match(rf"^(\S+)\s+(unassigned)", iface)
             if r:
                 self.interfaces.setdefault(r.group(1), DeviceInterface(name=r.group(1)))
 
@@ -109,7 +103,7 @@ class CiscoDevice:
                         continue
                     else:
                         break
-                r = re.match(fr"^\s+.*address\s+is\s+({REGEX_IP}/\d+)", line)
+                r = re.match(rf"^\s+.*address\s+is\s+({REGEX_IP}/\d+)", line)
                 if r:
                     self.interfaces[i].address = r.group(1)
                     continue
@@ -125,7 +119,7 @@ class CiscoDevice:
                 if r:
                     self.interfaces[i].vrf = r.group(1)
                     continue
-                r = re.match(fr"^\s+Secondary\s+address\s+({REGEX_IP}/\d+)", line)
+                r = re.match(rf"^\s+Secondary\s+address\s+({REGEX_IP}/\d+)", line)
                 if r:
                     if not hasattr(self.interfaces[i], "secondary"):
                         self.interfaces[i].secondary = [r.group(1)]
@@ -171,31 +165,30 @@ class CiscoDevice:
                 self.sim_active = r.group(1)
                 continue
 
-
     def get_device_info(self, connection):
         """Gather and parse information from device."""
-        if self.platform == 'iosxe':
+        if self.platform == "iosxe":
             parsed = connection.send_command("show version").textfsm_parse_output()[0]
-            self.hostname = parsed['hostname']
-            self.pid = parsed['hardware'][0]
-            self.sn = parsed['serial'][0]
-            self.sw = parsed['version']
-        elif self.platform == 'nxos':
+            self.hostname = parsed["hostname"]
+            self.pid = parsed["hardware"][0]
+            self.sn = parsed["serial"][0]
+            self.sw = parsed["version"]
+        elif self.platform == "nxos":
             parsed = connection.send_command("show version").textfsm_parse_output()[0]
-            self.hostname = parsed['hostname']
-            self.pid = parsed['platform']
-            self.sn = parsed['serial']
-            self.sw = parsed['os']
-        elif self.platform == 'iosxr':
+            self.hostname = parsed["hostname"]
+            self.pid = parsed["platform"]
+            self.sn = parsed["serial"]
+            self.sw = parsed["os"]
+        elif self.platform == "iosxr":
             result = connection.send_command("show version").result
-            r_search = re.search(r'\n(.*)uptime', result)
+            r_search = re.search(r"\n(.*)uptime", result)
             if r_search:
                 self.hostname = r_search.group(1)
-            r_search = re.search(r'Version\s(.*)\n', result)
+            r_search = re.search(r"Version\s(.*)\n", result)
             if r_search:
                 self.sw = r_search.group(1)
-            self.sn = ''
-            r_search = re.search(r'cisco\s(.*)\sprocessor', result)
+            self.sn = ""
+            r_search = re.search(r"cisco\s(.*)\sprocessor", result)
             if r_search:
                 self.pid = r_search.group(1)
         if COLLECT_INTERFACES_DATA:
@@ -203,16 +196,17 @@ class CiscoDevice:
         if self.pid in NETBOX_DUAL_SIM_PLATFORM:
             self.parse_sim_info(connection)
 
-
     def update_custom_field(self, cf_name, cf_value):
         """Update netbox custom_field value."""
         device_netbox = self.task.device
-        device_netbox.custom_field_data[cf_name] = cf_value
-        device_netbox.save()
+        if cf_name in list(device_netbox.custom_field_data.keys()):
+            device_netbox.custom_field_data[cf_name] = cf_value
+            device_netbox.save()
 
 
 class CollectDeviceData(CiscoDevice):
     """Object to parse information from Devices and save to NetBox."""
+
     global PLATFORMS
     global DEFAULT_PLATFORM
 
@@ -225,16 +219,15 @@ class CollectDeviceData(CiscoDevice):
             "auth_username": DEVICE_USERNAME,
             "auth_password": DEVICE_PASSWORD,
             "auth_strict_key": False,
-            "port": DEVICE_SSH_PORT,
-            "timeout_socket": 20,
-            "timeout_ops": 60,
-            "ssh_config_file": os.path.dirname(importlib.util.find_spec("config_officer").origin) + "/ssh_config",
+            "ssh_config_file": os.path.dirname(
+                importlib.util.find_spec("config_officer").origin
+            )
+            + "/ssh_config",
         }
         self.platform = platform if platform in PLATFORMS else "iosxe"
 
     # Check if NetBox and Device data are the same
     def check_netbox_sync(self):
-
         if self.hostname_ipam.lower().strip() != self.hostname.lower().strip():
             raise CollectionException(
                 reason=CollectFailChoices.FAIL_UPDATE,
@@ -250,10 +243,14 @@ class CollectDeviceData(CiscoDevice):
     def update_in_netbox(self):
         """Update information in NetBox."""
         # Custom fields
-        self.update_custom_field(CF_NAME_SSH, self.device["port"] == 22)
         self.update_custom_field(CF_NAME_SW_VERSION, self.sw.upper())
-        self.update_custom_field(CF_NAME_LAST_COLLECT_DATE, datetime.now(pytz.timezone(TIME_ZONE)).date())
-        self.update_custom_field(CF_NAME_LAST_COLLECT_TIME, datetime.now(pytz.timezone(TIME_ZONE)).strftime("%H:%M:%S"))
+        self.update_custom_field(
+            CF_NAME_LAST_COLLECT_DATE, datetime.now(pytz.timezone(TIME_ZONE)).date()
+        )
+        self.update_custom_field(
+            CF_NAME_LAST_COLLECT_TIME,
+            datetime.now(pytz.timezone(TIME_ZONE)).strftime("%H:%M:%S"),
+        )
 
         # Update information about interfaces
         if COLLECT_INTERFACES_DATA:
@@ -261,11 +258,20 @@ class CollectDeviceData(CiscoDevice):
                 str(x) for x in list(Interface.objects.filter(device=self.task.device))
             ]
 
-            template_interfaces = list(map(lambda d: d['name'], DeviceType.objects.get(slug__iexact=self.pid).interfacetemplates.values('name')))
+            template_interfaces = list(
+                map(
+                    lambda d: d["name"],
+                    DeviceType.objects.get(
+                        slug__iexact=self.pid
+                    ).interfacetemplates.values("name"),
+                )
+            )
 
             # Delete extra interfaces that non-compliant with DeviceType and don't contain in device from netbox
             for inter in Interface.objects.filter(device=self.task.device):
-                if (inter.name not in list(self.interfaces.keys())) and (inter.name not in template_interfaces):
+                if (inter.name not in list(self.interfaces.keys())) and (
+                    inter.name not in template_interfaces
+                ):
                     inter.delete()
 
             # Write down interfaces into NetBox
@@ -304,21 +310,30 @@ class CollectDeviceData(CiscoDevice):
 
                 # Create address if not exist in IPAM
                 if hasattr(v, "address"):
-                    ips_ipam_str_list = [str(x.address) for x in IPAddress.objects.filter(interface=interface_ipam)]
+                    ips_ipam_str_list = [
+                        str(x.address)
+                        for x in IPAddress.objects.filter(interface=interface_ipam)
+                    ]
                     if v.address not in ips_ipam_str_list:
-                        ip = IPAddress.objects.create(address=v.address, tenant=self.task.device.tenant)
+                        ip = IPAddress.objects.create(
+                            address=v.address, tenant=self.task.device.tenant
+                        )
                         interface_ipam.ip_addresses.add(ip)
 
                         if re.match(r"^Loopback", k, re.IGNORECASE):
                             ip.role = IPAddressRoleChoices.ROLE_LOOPBACK
                     else:
-                        ip = IPAddress.objects.get(address=v.address, interface=interface_ipam)
+                        ip = IPAddress.objects.get(
+                            address=v.address, interface=interface_ipam
+                        )
 
                     if hasattr(v, "vrf"):
                         try:
                             ip.vrf = VRF.objects.get(name__iexact=v.vrf)
                         except VRF.DoesNotExist:
-                            new_vrf = VRF.objects.create(name=v.vrf, enforce_unique=False)
+                            new_vrf = VRF.objects.create(
+                                name=v.vrf, enforce_unique=False
+                            )
                             # new_vrf.tags.add(NETBOX_NONCOMPLIANCE_TAG)
                             new_vrf.save()
                             ip.vrf = new_vrf
@@ -328,7 +343,9 @@ class CollectDeviceData(CiscoDevice):
                     ip.save()
                 if hasattr(v, "secondary"):
                     for i in v.secondary:
-                        ip = IPAddress.objects.create(address=i, role=IPAddressRoleChoices.ROLE_SECONDARY)
+                        ip = IPAddress.objects.create(
+                            address=i, role=IPAddressRoleChoices.ROLE_SECONDARY
+                        )
                         interface_ipam.ip_addresses.add(ip)
                         # ip.interface = Interface.objects.get(device=self.ot.device, name__iexact=k)
                         if hasattr(v, "vrf"):
@@ -366,8 +383,6 @@ class CollectDeviceData(CiscoDevice):
             with PLATFORMS[self.platform](**self.device) as connection:
                 self.get_device_info(connection)
         except Exception:
-            self.device["port"] = 23
-            self.device["transport"] = "telnet"
             try:
                 with PLATFORMS[self.platform](**self.device) as connection:
                     self.get_device_info(connection)

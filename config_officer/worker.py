@@ -15,15 +15,25 @@ from .config_manager import get_config_diff
 from django.conf import settings
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("config_officer", dict())
-CF_NAME_COLLECTION_STATUS = PLUGIN_SETTINGS.get("CF_NAME_COLLECTION_STATUS", "collection_status")
-NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get("NETBOX_DEVICES_CONFIGS_DIR", "/device_configs")
-GLOBAL_TASK_INIT_MESSAGE = 'global_collection_task'
-DEFAULT_PLATFORM = 'iosxe'
+CF_NAME_COLLECTION_STATUS = PLUGIN_SETTINGS.get(
+    "CF_NAME_COLLECTION_STATUS", "collection_status"
+)
+NETBOX_DEVICES_CONFIGS_DIR = PLUGIN_SETTINGS.get(
+    "NETBOX_DEVICES_CONFIGS_DIR", "/device_configs"
+)
+GLOBAL_TASK_INIT_MESSAGE = "global_collection_task"
+DEFAULT_PLATFORM = "iosxe"
+
 
 def get_active_collect_task_count():
-    """ Get count of pending collection tasks."""
-    return  Collection.objects.filter((Q(status__iexact=CollectStatusChoices.STATUS_PENDING)
-            | Q(status__iexact=CollectStatusChoices.STATUS_RUNNING)) & Q(message__iexact=GLOBAL_TASK_INIT_MESSAGE)).count()
+    """Get count of pending collection tasks."""
+    return Collection.objects.filter(
+        (
+            Q(status__iexact=CollectStatusChoices.STATUS_PENDING)
+            | Q(status__iexact=CollectStatusChoices.STATUS_RUNNING)
+        )
+        & Q(message__iexact=GLOBAL_TASK_INIT_MESSAGE)
+    ).count()
 
 
 @job("default")
@@ -31,12 +41,16 @@ def collect_device_config_hostname(hostname):
     """Collect device configuration by name. Task started with hostname param."""
 
     device = Device.objects.get(name__iexact=hostname)
-    collect_task = Collection.objects.create(device=device, message="device collection task")
+    collect_task = Collection.objects.create(
+        device=device, message="device collection task"
+    )
     collect_task.save()
 
     now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    commit_msg = f"device_{hostname}_{now}"      
-    get_queue("default").enqueue("config_officer.worker.collect_device_config_task", collect_task.pk, commit_msg)
+    commit_msg = f"device_{hostname}_{now}"
+    get_queue("default").enqueue(
+        "config_officer.worker.collect_device_config_task", collect_task.pk, commit_msg
+    )
 
 
 @job("default")
@@ -62,24 +76,27 @@ def collect_device_config_task(task_id, commit_msg=""):
     try:
         device_netbox = collect_task.device
         device_netbox.custom_field_data[CF_NAME_COLLECTION_STATUS] = False
-        platform = device_netbox.platform.name
+        platform = device_netbox.device_type.manufacturer.name
         if platform is None:
             platform = DEFAULT_PLATFORM
         device_netbox.save()
         ip = str(ipaddress.ip_interface(device_netbox.primary_ip4).ip)
-        device_collect = CollectDeviceData(collect_task,
-                                            ip=ip,
-                                            hostname_ipam=str(device_netbox.name),
-                                            platform=platform
-                                        )
+        device_collect = CollectDeviceData(
+            collect_task,
+            ip=ip,
+            hostname_ipam=str(device_netbox.name),
+            platform=platform,
+        )
         device_collect.collect_information()
     except CollectionException as exc:
         collect_task.status = CollectStatusChoices.STATUS_FAILED
         collect_task.failed_reason = exc.reason
         collect_task.message = exc.message
         collect_task.save()
-        if get_active_collect_task_count() < 11:    
-            get_queue("default").enqueue("config_officer.worker.git_commit_configs_changes", commit_msg)        
+        if get_active_collect_task_count() < 11:
+            get_queue("default").enqueue(
+                "config_officer.worker.git_commit_configs_changes", commit_msg
+            )
         raise
     except Exception as exc:
         collect_task.status = CollectStatusChoices.STATUS_FAILED
@@ -87,19 +104,26 @@ def collect_device_config_task(task_id, commit_msg=""):
         collect_task.message = f"Unknown error {exc}"
         collect_task.save()
         if get_active_collect_task_count() < 11:
-            get_queue("default").enqueue("config_officer.worker.git_commit_configs_changes", commit_msg)           
+            get_queue("default").enqueue(
+                "config_officer.worker.git_commit_configs_changes", commit_msg
+            )
         raise
     collect_task.status = CollectStatusChoices.STATUS_SUCCEEDED
     device_netbox.custom_field_data[CF_NAME_COLLECTION_STATUS] = True
     collect_task.save()
 
     try:
-        get_queue("default").enqueue("config_officer.worker.check_device_config_compliance", device=collect_task.device)        
+        get_queue("default").enqueue(
+            "config_officer.worker.check_device_config_compliance",
+            device=collect_task.device,
+        )
     except:
         pass
-        
+
     if get_active_collect_task_count() < 11:
-        get_queue("default").enqueue("config_officer.worker.git_commit_configs_changes", commit_msg)       
+        get_queue("default").enqueue(
+            "config_officer.worker.git_commit_configs_changes", commit_msg
+        )
     return f"{collect_task.device.name} {ip} running config was collected."
 
 
@@ -108,7 +132,7 @@ def git_commit_configs_changes(msg):
     """Commit changes in devices show-run."""
 
     if get_active_collect_task_count() > 0:
-        return    
+        return
     message = ""
     try:
         repo = Repo(NETBOX_DEVICES_CONFIGS_DIR)
@@ -116,7 +140,9 @@ def git_commit_configs_changes(msg):
 
         # check if there are any changes
         if len(repo.index.diff("HEAD")) > 0:
-            commit_hash = repo.git.commit("-m", msg, author="Netbox Netbox <netbox@example.com>")
+            commit_hash = repo.git.commit(
+                "-m", msg, author="Netbox Netbox <netbox@example.com>"
+            )
             message = f"Commited. Response={commit_hash}."
         else:
             message = "No changes for commit"
@@ -127,50 +153,54 @@ def git_commit_configs_changes(msg):
 
 @job("default")
 def check_device_config_compliance(device):
-    
-    """Check a configuration template compliance for a particular device.""" 
+    """Check a configuration template compliance for a particular device."""
 
-    # Compliance.objects.get_or_create(device=device).delete()    
+    # Compliance.objects.get_or_create(device=device).delete()
     compliance = Compliance.objects.get_or_create(device=device)[0]
     compliance.status = ServiceComplianceChoices.STATUS_NON_COMPLIANCE
     compliance.notes = "not checked yet"
     compliance.generated_config = "None"
     compliance.diff = "None"
     compliance.save()
-    compliance.services = [m.service.name for m in ServiceMapping.objects.filter(device=compliance.device)]
+    compliance.services = [
+        m.service.name for m in ServiceMapping.objects.filter(device=compliance.device)
+    ]
 
     # Check if there are matched templates
     templates = compliance.get_device_templates()
     if not templates:
-        compliance.notes = 'No matched templates'
-        compliance.save()   
-        return {device: compliance.notes}    
+        compliance.notes = "No matched templates"
+        compliance.save()
+        return {device: compliance.notes}
 
-    # Check if device config file exists: 
-    device_config = get_device_config(NETBOX_DEVICES_CONFIGS_DIR, device.name, "running")        
+    # Check if device config file exists:
+    device_config = get_device_config(
+        NETBOX_DEVICES_CONFIGS_DIR, device.name, "running"
+    )
     if not device_config:
-        compliance.notes = 'running config not found in git'
+        compliance.notes = "running config not found in git"
         compliance.save()
         return {device: compliance.notes}
 
     # If device configuration elder tham 7 days - non_compliance
-    device_config_age = get_days_after_update(NETBOX_DEVICES_CONFIGS_DIR, device.name, "running")       
-    if device_config_age > 7:    
+    device_config_age = get_days_after_update(
+        NETBOX_DEVICES_CONFIGS_DIR, device.name, "running"
+    )
+    if device_config_age > 7:
         compliance.notes = f"device config is staled ({device_config_age} days)"
         compliance.save()
         return {device: compliance.notes}
     elif device_config_age < 0:
-        compliance.notes = 'unknown error during calculating config age',
+        compliance.notes = ("unknown error during calculating config age",)
         compliance.save()
         return {device: compliance.notes}
 
     generated_config = compliance.get_generated_config().splitlines()
-    
     compliance.diff = get_config_diff(generated_config, device_config.splitlines())
-    
-    if len(compliance.diff) == 0:     
+
+    if len(compliance.diff) == 0:
         # Running configuration absilutely compliant to template
-        compliance.diff = ""   
+        compliance.diff = ""
         compliance.notes = None
         compliance.status = ServiceComplianceChoices.STATUS_COMPLIANCE
     else:
@@ -191,8 +221,14 @@ def collect_all_devices_configs():
     Collection.objects.all().delete()
     devices = Device.objects.all()
     now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    commit_msg = f"global_{now}"      
+    commit_msg = f"global_{now}"
     for device in devices:
-        collect_task = Collection.objects.create(device=device, message=GLOBAL_TASK_INIT_MESSAGE)
+        collect_task = Collection.objects.create(
+            device=device, message=GLOBAL_TASK_INIT_MESSAGE
+        )
         collect_task.save()
-        get_queue("default").enqueue("config_officer.worker.collect_device_config_task", collect_task.pk, commit_msg)
+        get_queue("default").enqueue(
+            "config_officer.worker.collect_device_config_task",
+            collect_task.pk,
+            commit_msg,
+        )

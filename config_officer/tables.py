@@ -1,12 +1,8 @@
 """Tables for config_officer plugin."""
 
 import django_tables2 as tables
-from utilities.tables import BaseTable, ToggleColumn, ColoredLabelColumn, TagColumn
-from .models import (
-    Collection, 
-    Template,
-    Service
-)
+from netbox.tables import NetBoxTable, ToggleColumn, ColoredLabelColumn, TagColumn
+from .models import Collection, Template, ProvidedService
 from tenancy.tables import TenantColumn
 from django_tables2.utils import Accessor
 from dcim.models import Device
@@ -35,7 +31,7 @@ DESCRIPTION = """{{ record.description|default:"&mdash;" }}"""
 TEMPLATE_TEXT = """
 <button type="button" id='button_collapse' class="btn btn-link collapsed text-muted" data-toggle="collapse" data-target=#input_area_{{ record.pk }}>Collapse/Expand</button>
 <div class="w-100">
-    <div id=input_area_{{ record.pk }} class="width:20px collapse multi-collapse">        
+    <div id=input_area_{{ record.pk }} class="width:20px collapse multi-collapse">
         <pre>{{ record.configuration }}</pre>
     </div>
 </div>
@@ -111,14 +107,14 @@ COMPLIANCE_STATUS = """
 
 COMPLIANCE_NOTES = """
 {% if record.compliance %}
-    <span class="text-nowrap">    
-        {% if record.compliance.notes %}        
+    <span class="text-nowrap">
+        {% if record.compliance.notes %}
             <p class="text-warning">{{ record.compliance.notes|default:"&mdash;" }}</p>
         {% else %}
             <a href="{% url 'plugins:config_officer:compliance' device=record.pk %}">
                 details
             </a>
-        {% endif %}                     
+        {% endif %}
     </span>
 {% else %}
     &mdash;
@@ -127,40 +123,40 @@ COMPLIANCE_NOTES = """
 
 
 # Classes
-class CollectionTable(BaseTable):
+class CollectionTable(NetBoxTable):
     pk = ToggleColumn()
     device = tables.LinkColumn(
-        verbose_name='Hostname',
+        verbose_name="Hostname",
     )
 
     status = tables.TemplateColumn(
         template_code=TASK_STATUS,
-        verbose_name='Status',
-    )  
+        verbose_name="Status",
+    )
 
     failed_reason = tables.TemplateColumn(
         template_code=TASK_FAILED_REASON,
-        verbose_name='Failed Reason',
+        verbose_name="Failed Reason",
     )
 
     message = tables.TemplateColumn(
         template_code=MESSAGE,
-        verbose_name='Message',
-    )      
+        verbose_name="Message",
+    )
 
-    class Meta(BaseTable.Meta):
+    class Meta(NetBoxTable.Meta):
         model = Collection
         fields = (
-            'pk',
-            'timestamp',
-            'device',
-            'status',
-            'failed_reason',
-            'message',            
+            "pk",
+            "timestamp",
+            "device",
+            "status",
+            "failed_reason",
+            "message",
         )
 
 
-class TemplateListTable(BaseTable):
+class TemplateListTable(NetBoxTable):
     """Template list table."""
 
     pk = ToggleColumn()
@@ -183,14 +179,14 @@ class TemplateListTable(BaseTable):
         template_code=SERVICE_TEMPLATES,
         verbose_name="Services",
         orderable=False,
-    )    
+    )
 
-    class Meta(BaseTable.Meta):
+    class Meta(NetBoxTable.Meta):
         model = Template
         fields = ("pk", "name", "description", "configuration", "services")
 
 
-class ServiceListTable(BaseTable):
+class ServiceListTable(NetBoxTable):
     pk = ToggleColumn()
 
     name = tables.TemplateColumn(
@@ -212,15 +208,14 @@ class ServiceListTable(BaseTable):
         template_code=RULES_COUNT,
         verbose_name="Rules",
         orderable=False,
-    )    
+    )
+
+    class Meta(NetBoxTable.Meta):
+        model = ProvidedService
+        fields = ("name", "description", "devices_count", "rules_count")
 
 
-    class Meta(BaseTable.Meta):
-        model = Service
-        fields = ("name", "description", "devices_count", "rules_count")        
-        
-
-class ServiceRuleListTable(BaseTable):
+class ServiceRuleListTable(NetBoxTable):
     pk = ToggleColumn()
 
     service = tables.TemplateColumn(
@@ -245,17 +240,17 @@ class ServiceRuleListTable(BaseTable):
         verbose_name="Description",
     )
 
-
-    class Meta(BaseTable.Meta):
-        model = Service
+    class Meta(NetBoxTable.Meta):
+        model = ProvidedService
         fields = ("service", "device_role", "device_type", "template", "description")
 
 
-class ServiceMappingListTable(BaseTable):
+class ServiceMappingListTable(NetBoxTable):
     pk = ToggleColumn()
     name = tables.TemplateColumn(
-        order_by=("name",), template_code=SERVICE_MAPPING_DEVICE_LINK,
-        verbose_name='Device'
+        order_by=("name",),
+        template_code=SERVICE_MAPPING_DEVICE_LINK,
+        verbose_name="Device",
     )
     service = tables.TemplateColumn(
         template_code=ATTACHED_SERVICES_LIST,
@@ -282,7 +277,7 @@ class ServiceMappingListTable(BaseTable):
         orderable=False,
     )
 
-    class Meta(BaseTable.Meta):
+    class Meta(NetBoxTable.Meta):
         model = Device
         fields = (
             "pk",
@@ -293,5 +288,5 @@ class ServiceMappingListTable(BaseTable):
             "device_type",
             "tags",
             "status",
-            "notes"
+            "notes",
         )

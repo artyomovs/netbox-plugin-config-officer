@@ -3,7 +3,7 @@
 NetBox plugin that deals with Cisco device configuration (collects running config from Cisco devices, indicates config changes, and checks templates compliance).
 
 A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with running-configuration of Cisco devices.
->Compatible with NetBox 2.9 and higher versions only.
+>Compatible with NetBox 3.2 and later versions only.
 
 - Collect actual information from Cisco devices (running_config, version, IP addresses, etc.) and shows it on a dedicated NetBox page.
 - Save Cisco running configuration in a local directory and display all changes with git-like diffs.
@@ -13,7 +13,7 @@ A plugin for [NetBox](https://github.com/netbox-community/netbox) to work with r
 
 Preview.
 > Collect devices data:
-> ![collect devices data](static/collection.gif) 
+> ![collect devices data](static/collection.gif)
 
 > Templates compliance
 > ![templates compliance](static/templates.gif)
@@ -59,6 +59,8 @@ sudo docker build -t netbox-myplugins .
 mkdir ~/netbox/netbox-docker/device_configs && cd "$_"
 git init
 echo hello > hello.txt
+git config user.email "netbox@netbox.local"
+git config config.name "netbox"
 git add .
 git commit -m "Initial"
 chmod 777 -R ../device_configs
