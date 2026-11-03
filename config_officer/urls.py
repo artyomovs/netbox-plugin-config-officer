@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .models import CollectSchedule
 
 urlpatterns = [
     # Collection
@@ -80,6 +81,7 @@ urlpatterns = [
         "schedules/<int:pk>/jobs/",
         views.CollectScheduleJobsView.as_view(),
         name="collectschedule_jobs",
+        kwargs={"model": CollectSchedule},
     ),
     path(
         "running_config/<str:hostname>/status/<str:config_job_id>/<str:repo_job_id>/",

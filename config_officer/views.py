@@ -14,6 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 from django_rq import get_connection, get_queue
+from netbox.object_actions import AddObject
 from netbox.views.generic import (
     ObjectDeleteView,
     ObjectEditView,
@@ -352,7 +353,7 @@ class ServiceMappingListView(PermissionRequiredMixin, ObjectListView):
                     [
                         d.name,
                         d.device_type.model,
-                        d.device_role.name,
+                        d.role.name,
                         str(d.primary_ip4).split("/")[0] if d.primary_ip4 else "",
                         str(d.tenant),
                         d.compliance.status,
@@ -365,7 +366,7 @@ class ServiceMappingListView(PermissionRequiredMixin, ObjectListView):
                     [
                         d.name,
                         d.device_type.model,
-                        d.device_role.name,
+                        d.role.name,
                         str(d.primary_ip4).split("/")[0] if d.primary_ip4 else "",
                         str(d.tenant),
                         "service not assigned",
@@ -556,9 +557,7 @@ class CollectScheduleListView(PermissionRequiredMixin, ObjectListView):
     permission_required = ("dcim.view_device",)
     queryset = CollectSchedule.objects.prefetch_related("devices")
     table = CollectScheduleTable
-    actions = {
-        "add": {"add"},
-    }
+    actions = (AddObject,)
     default_return_url = "plugins:config_officer:schedule_list"
 
 

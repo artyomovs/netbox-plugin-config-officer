@@ -114,7 +114,7 @@ class Service(models.Model):
         rules = self.service_rules.all()
 
         device_rules = rules.filter(
-            Q(device_role=device.device_role) | Q(device_role__isnull=True)
+            Q(device_role=device.role) | Q(device_role__isnull=True)
         ).filter(Q(device_type=device.device_type) | Q(device_type__isnull=True))
 
         return [r.template for r in device_rules if r.template]
@@ -149,7 +149,7 @@ class ServiceRule(models.Model):
     def matches_device(self, device):
         """Central matching logic (IMPORTANT FIX)."""
 
-        role_match = not self.device_role.exists() or device.device_role in self.device_role.all()
+        role_match = not self.device_role.exists() or device.role in self.device_role.all()
 
         type_match = not self.device_type.exists() or device.device_type in self.device_type.all()
 

@@ -284,7 +284,7 @@ class ServiceMappingListTable(NetBoxTable):
         orderable=False,
     )
     tenant = tables.Column()
-    device_role = tables.Column(verbose_name="Role")
+    device_role = tables.Column(accessor="role", verbose_name="Role")
     device_type = tables.LinkColumn(
         viewname="dcim:devicetype",
         args=[Accessor("device_type.pk")],
