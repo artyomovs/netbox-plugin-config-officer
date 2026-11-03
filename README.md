@@ -91,7 +91,6 @@ PLUGINS_CONFIG = {
     "config_officer": {
         # REQUIRED - path to the directory prepared in step 4
         "NETBOX_DEVICES_CONFIGS_REPO_DIR": "/opt/device_configs",
-
         # REQUIRED - credentials used to SSH into devices
         "DEVICE_USERNAME": "cisco",
         "DEVICE_PASSWORD": "cisco",
