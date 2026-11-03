@@ -39,8 +39,8 @@ Thank you for taking the time to contribute. This document covers everything you
 .
 ├── config_officer/               # Plugin source code (mounted live into the container)
 ├── tests/
-│   ├── conftest.py               # netbox.plugins stub - tests run without a live NetBox
-│   └── test_*.py
+│   ├── conftest.py               # netbox.plugins stub - unit tests run without a live NetBox
+│   └── unit/test_*.py
 ├── scripts/
 │   └── run_tests_for_changed.py  # Pre-commit helper: maps changed files → relevant tests
 ├── configuration/
@@ -195,7 +195,7 @@ poetry run pytest
 Run a specific file:
 
 ```shell
-poetry run pytest tests/test_cisco_diff.py -v
+poetry run pytest tests/unit/test_diff.py -v
 ```
 
 Run tests matching a name pattern:
@@ -208,8 +208,8 @@ poetry run pytest -k "diff" -v
 
 The `pytest-changed` pre-commit hook automatically selects which tests to run based on what you are committing. The mapping logic is:
 
-- A changed test file (e.g. `tests/test_cisco_diff.py`) → runs that file directly.
-- A changed production module (e.g. `config_officer/cisco_diff.py`) → looks for `tests/**/test_cisco_diff.py`.
+- A changed test file (e.g. `tests/unit/test_diff.py`) → runs that file directly.
+- A changed production module (e.g. `config_officer/compliance/diff.py`) → looks for `tests/**/test_diff.py`.
 - Django migration files and non-Python files are skipped entirely.
 
 ### Writing tests

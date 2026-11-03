@@ -8,214 +8,203 @@
 [![Python](https://img.shields.io/pypi/pyversions/netbox-plugin-config-officer-2)](https://pypi.org/project/netbox-plugin-config-officer-2/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-A [NetBox](https://github.com/netbox-community/netbox) plugin for collecting Cisco device configurations, tracking changes over time, and auditing compliance with predefined templates. Forked from [artyomovs/netbox-plugin-config-officer](https://github.com/artyomovs/netbox-plugin-config-officer) and updated for NetBox 4.x.
+A [NetBox](https://github.com/netbox-community/netbox) plugin that collects running configurations from Cisco devices (IOS-XE, NX-OS, IOS-XR), versions them in Git, writes what it learns back into NetBox and audits the configurations against compliance templates. Forked from [artyomovs/netbox-plugin-config-officer](https://github.com/artyomovs/netbox-plugin-config-officer).
 
-**Features:**
+**Features**
 
-- Collect running configuration and version info from Cisco devices via SSH
-- Store configs in a Git repository and display diffs in NetBox
-- Schedule automatic collection from specified devices
-- Define configuration templates per device role or type and audit compliance
-- Export compliance results to CSV
-- Automatically create interfaces, LAGs, and IP addresses in NetBox from device config
+- Collect all devices, devices **by tag** or selected devices - on demand or on a schedule
+- Every run is a NetBox background job with a readable log; every device gets a result that lists exactly what changed
+- Running configs are sanitised and stored in a Git repository (optionally pushed to a remote); history and diffs on the device page
+- NetBox is updated from the device: serial number, software version custom fields, interfaces, LAGs, IP and MAC addresses - recorded in NetBox's change log
+- Compliance: templates are applied to devices through services and rules (by role / device type); missing lines are reported per device
+- Optional signed webhook with a summary after scheduled runs
+- NetBox-native permissions, including per-device constraints
 
-## Preview
-
-> Collect device data:
-> ![collect devices data](static/collection.gif)
-
-> Template compliance:
-> ![templates compliance](static/templates.gif)
+| Plugin version | NetBox version |
+|---|---|
+| 0.2.x | 4.7 (tested with 4.7.2) |
+| 0.1.26 | 4.7 (hotfix release of 0.1.25) |
+| 0.1.25 and older | 4.6 and older |
 
 ---
 
 ## Installation
 
-> These instructions assume a standard NetBox installation managed with pip. For general plugin installation guidance see the [official NetBox docs](https://netbox.readthedocs.io/en/stable/plugins/).
-
-### 1. Install system dependencies
-
-The plugin connects to devices over SSH and interacts with Git. Make sure the following packages are available on the system running NetBox:
+The plugin connects to devices over SSH/Telnet and runs `git`. Install the system packages on every host that runs the NetBox **worker** (and the web server, if it should read configs directly):
 
 ```shell
-# Debian / Ubuntu
 apt-get install -y git openssh-client
 ```
 
-### 2. Install the plugin
-
-Activate the NetBox virtual environment, then install the plugin and its Python dependencies:
+Install the plugin into NetBox's virtual environment (and add it to `local_requirements.txt` so upgrades keep it):
 
 ```shell
 source /opt/netbox/venv/bin/activate
 pip install netbox-plugin-config-officer-2
-```
-
-To ensure the plugin is automatically reinstalled during future NetBox upgrades:
-
-```shell
 echo netbox-plugin-config-officer-2 >> /opt/netbox/local_requirements.txt
 ```
 
-### 3. Run database migrations
-
-```shell
-cd /opt/netbox/netbox
-python manage.py migrate config_officer
-```
-
-### 4. Prepare the config storage directory
-
-The plugin stores device configurations in a local directory that it manages as a Git repository. The plugin will initialise the Git repository inside it automatically on first run.
-
-```shell
-mkdir -p /opt/device_configs
-```
-
-The NetBox process (or the RQ worker, if you run one) must be able to read and write this directory. Set ownership to whichever user NetBox Worker runs as:
-
-```shell
-chown -R <netbox-user>:<netbox-user> /opt/device_configs
-```
-
-> If you are unsure which user NetBox runs as, check your systemd service file (`User=` field) or run `ps aux | grep netbox`.
-
-### 5. Enable and configure the plugin
-
-Add `config_officer` to `PLUGINS` in your `configuration.py`, and add a `PLUGINS_CONFIG` block. The only required settings are `NETBOX_DEVICES_CONFIGS_REPO_DIR` and the device credentials:
+Enable it in `configuration.py` (all settings are optional, see [Configuration](#configuration)):
 
 ```python
 PLUGINS = ["config_officer"]
-
 PLUGINS_CONFIG = {
     "config_officer": {
-        # REQUIRED - path to the directory prepared in step 4
-        "NETBOX_DEVICES_CONFIGS_REPO_DIR": "/opt/device_configs",
-        # REQUIRED - credentials used to SSH into devices
-        "DEVICE_USERNAME": "cisco",
-        "DEVICE_PASSWORD": "cisco",
+        "CONFIGS_REPO_DIR": "/opt/device_configs",
+        "DEVICE_USERNAME": "netbox",
+        "DEVICE_PASSWORD": "secret",
     }
 }
 ```
 
-All other settings are optional and documented in the [Configuration](#configuration) section below.
-
-### 6. Restart NetBox
+Create the storage directory (the plugin initialises the Git repository itself), run the migrations and restart NetBox **and its worker**:
 
 ```shell
+mkdir -p /opt/device_configs && chown -R <netbox-user>: /opt/device_configs
+cd /opt/netbox/netbox && python manage.py migrate config_officer
 systemctl restart netbox netbox-rqworker
 ```
 
-### 7. Create Custom Fields in NetBox (optional)
+> The directory must be writable by the NetBox worker. If the web server cannot see it (e.g. only the worker container mounts the volume), the device page asks the worker for the config instead.
 
-These fields store collection metadata on each device. Create them under **dcim > device** and make sure their names match the `CF_NAME_*` values in your config (defaults shown below):
+Optionally create these **custom fields** on *DCIM > Device*; the plugin fills those that exist after every collection:
 
-| Name | Label | Type |
+| Name | Type | Content |
 |---|---|---|
-| `version` | Software version | Text |
-| `ssh` | SSH enabled | Boolean |
-| `last_collect_date` | Date of last collection | Text |
-| `last_collect_time` | Time of last collection | Text |
+| `version` | Text | Software version |
+| `ssh` | Boolean | Collected over SSH (false = Telnet) |
+| `last_collect_date` | Text | Date of the last successful collection |
+| `last_collect_time` | Text | Time of the last successful collection |
 
 ---
 
-## Configuration
+## Permissions
 
-All settings can be provided in `PLUGINS_CONFIG` or as environment variables. Environment variables take priority. The env var name for each setting is `CO_<KEY>` unless noted otherwise.
+The plugin uses NetBox's own permission system (*Admin > Object Permissions*). Superusers can do everything.
 
-### Required
-
-| Setting | Env var | Description |
-|---|---|---|
-| `CONFIGS_REPO_DIR` | `CO_CONFIGS_REPO_DIR` | Path to the directory where device configs are stored. Must exist; the plugin initialises the Git repo inside it on first run. |
-| `DEVICE_USERNAME` | `CO_DEVICE_USERNAME` | SSH username for connecting to devices. |
-| `DEVICE_PASSWORD` | `CO_DEVICE_PASSWORD` | SSH password for connecting to devices. |
-
-### Optional
-
-#### SSH
-
-| Setting | Env var | Default | Description |
-|---|---|---|---|
-| `DEVICE_SSH_PORT` | `CO_DEVICE_SSH_PORT` | `22` | SSH port used for all devices. |
-| `DEFAULT_PLATFORM` | `CO_DEFAULT_PLATFORM` | `nxos` | Default scrapli driver/platform used when a device has no platform set in NetBox. |
-
-#### Config storage
-
-| Setting | Env var | Default | Description |
-|---|---|---|---|
-| `CONFIGS_SUBPATH` | `CO_CONFIGS_SUBPATH` | `netbox` | Sub-directory inside the repo where config files are written. |
-
-#### Remote Git
-
-Push configs to a remote Git repository (GitHub, GitLab, etc.) after each collection. Configure via the `GIT_REMOTE` dict or individual env vars:
-
-| Setting | Env var | Default | Description |
-|---|---|---|---|
-| `GIT_REMOTE.ENABLED` | `CO_GIT_REMOTE_ENABLED` | `True` | Enable or disable remote push. |
-| `GIT_REMOTE.URL` | `CO_GIT_REMOTE_URL` | `None` | Remote URL (e.g. `git@github.com:org/repo.git`). Required if remote push is enabled. |
-| `GIT_REMOTE.NAME` | `CO_GIT_REMOTE_NAME` | `origin` | Git remote name. |
-| `GIT_REMOTE.BRANCH` | `CO_GIT_REMOTE_BRANCH` | `netbox` | Branch to push to. |
-| `GIT_REMOTE.SSH_KEY_PATH` | `CO_GIT_REMOTE_SSH_KEY_PATH` | `None` | Path to the SSH private key used for remote authentication. |
-| `GIT_REMOTE.AUTHOR` | `CO_GIT_REMOTE_AUTHOR` | `Netbox <netbox@example.com>` | Git author string for commits. |
-
-#### Custom field names
-
-Only needed if you named your custom fields differently from the defaults:
-
-| Setting | Default |
+| To... | Grant |
 |---|---|
-| `CF_NAME_SW_VERSION` | `version` |
-| `CF_NAME_SSH` | `ssh` |
-| `CF_NAME_LAST_COLLECT_DATE` | `last_collect_date` |
-| `CF_NAME_LAST_COLLECT_TIME` | `last_collect_time` |
+| Start a collection (run page, device button, schedules, API) | action **`collect_config`** on *DCIM > Device* |
+| See a device's running config and its history | action **`view_config`** on *DCIM > Device* |
+| See runs and per-device results | `view` on *Config Officer > collection result* |
+| Manage schedules | `view/add/change/delete` on *collection schedule* (plus `collect_config`) |
+| Manage compliance templates / services / rules | `view/add/change/delete` on the respective model |
+| See compliance status | `view` on *compliance status* |
+| Assign / remove services on devices | `add` / `delete` on *service assignment* |
+| Re-check compliance | `change` on *compliance status* |
 
-#### Feature flags
+`collect_config` and `view_config` are custom actions on devices, so they honour constraints - e.g. `{"site__slug": "waw1"}` lets a team collect only its own devices. A collection run started by a user only touches the devices that user may collect.
 
-| Setting | Env var | Default | Description |
-|---|---|---|---|
-| `COLLECT_INTERFACES_DATA` | `CO_COLLECT_INTERFACES_DATA` | `True` | Create/update interfaces in NetBox from device config. |
-| `COLLECT_PORT_CHANNEL_DATA` | `CO_COLLECT_PORT_CHANNEL_DATA` | `True` | Create/update LAGs in NetBox from device config. |
-
-#### Config sanitisation
-
-| Setting | Default | Description |
-|---|---|---|
-| `SENSITIVE_PREFIXES` | `username`, `ssh`, `snmp-server user`, `crypto`, `key`, `password` | Lines whose first word matches any of these prefixes are redacted before the config is saved. |
-| `VOLATILE_LINE_PATTERNS` | Timestamp and `ntp clock-period` patterns | Regex patterns - matching lines are stripped before diffing so they don't produce false-positive changes. |
+Showing a NetBox change log link on the run page requires `core.view_objectchange`.
 
 ---
 
 ## Usage
 
-### Collecting device configurations
+- **Config Officer > Collection > Run & monitor** - start a collection of all devices, devices with tags, or selected devices; see recent runs and the latest status of all devices.
+- **Run page** - progress (auto-refresh), the log of the run, the result of every device, the Git commit and a link to all NetBox changes made by the run.
+- **Device page** - *Collect config* button, a *Config Officer* panel with the last result and compliance, and the tabs *Configuration* (running config + Git history with diffs) and *Compliance*.
+- **Schedules** - recurring collections of all devices, devices with tags (resolved at each run) and/or selected devices, optionally with a webhook. *Run now* runs a schedule once.
+- **Compliance** - 1) create *Templates*, 2) create a *Service* with *Rules* (template + optional roles / device types), 3) assign services to devices in *Device status*. The verdict is updated after every collection; *Re-check compliance* recomputes it from the stored configs.
 
- **Collect Device Data** and **Show Running Config** buttons should appear on each device page. Clicking **Collect Device Data** pulls the current running config via SSH and commits it to the configured Git repository.
+### REST API
 
-### Template compliance
+Under `/api/plugins/config_officer/`: `templates/`, `services/`, `service-rules/`, `schedules/` (CRUD), `results/` and `compliance/` (read-only), and
 
-After installation a **Plugins** menu appears in the top navigation bar. Template compliance follows a three-step workflow:
+```shell
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     https://netbox/api/plugins/config_officer/runs/ -d '{"tags": ["core"]}'
+# {"job_id": 123, "job_uuid": "...", "run_url": "https://netbox/plugins/config_officer/runs/123/"}
+```
 
-1. **Add a template** - define a configuration block that devices should conform to.
-2. **Add a service** - group one or more templates and bind them to specific device roles or types via service rules.
-3. **Attach the service to devices** - all matched templates are merged into a single combined template and compared against each device's running config.
+The body accepts `all_devices` (bool), `tags` (slugs), `devices` (IDs) and `statuses`. The 0.1.x endpoint `POST collection/` with `task=global_collection` still works.
 
-Compliance results can be exported to CSV from the compliance list view.
+### Webhook
 
-![compliance_list](static/compliance_list.png)
+After a scheduled run (and *Run now*) the summary is POSTed as JSON to the schedule's webhook URL: `event`, `schedule`, `target`, `commit`, `job`, `summary` (`total`, `succeeded`, `failed`, `skipped`, `changed`), `results` and `diffs`. With a secret, the header `X-Webhook-Signature: sha256=<HMAC-SHA256 of the body>` is added.
 
-### Scheduled collection
+---
 
-Planned collection across all devices can be scheduled directly from the **Schedule Data Collection** menu under **Plugins** in the top navigation bar.
+## Configuration
 
+Every setting can be given in `PLUGINS_CONFIG["config_officer"]` or as an environment variable `CO_<SETTING>` (environment wins). `GIT_REMOTE` keys use `CO_GIT_REMOTE_<KEY>`. Lists may be given as comma-separated values or JSON, dicts as JSON. Unknown or invalid settings are reported in the NetBox log at startup.
+
+**Devices**
+
+| Setting | Default | Description |
+|---|---|---|
+| `DEVICE_USERNAME` / `DEVICE_PASSWORD` | `cisco` / `cisco` | Credentials for all devices |
+| `DEVICE_ENABLE_PASSWORD` | empty | Enable secret, if the login does not land in privileged mode |
+| `DEVICE_SSH_PORT` | `22` | SSH port |
+| `DEVICE_SPECIFIC_CONF` | `{}` | Per-hostname overrides: `{"sw1": {"DEVICE_USERNAME": "...", "DEVICE_PASSWORD": "...", "DEVICE_SSH_PORT": 2222}}` |
+| `TELNET_FALLBACK` | `True` | Try Telnet (port 23) when SSH fails |
+| `DEFAULT_PLATFORM` | `nxos` | Driver for devices without a recognised platform: `iosxe`, `nxos` or `iosxr` |
+| `PLATFORM_MAP` | `{}` | NetBox platform slug -> driver, e.g. `{"c9k": "iosxe"}`. Common slugs such as `cisco-ios-xe`, `ios`, `nx-os` are recognised automatically |
+| `SSH_CONFIG_FILE` | empty | OpenSSH config file, e.g. to enable legacy ciphers/kex for old devices |
+| `CONNECT_TIMEOUT` / `COMMAND_TIMEOUT` | `20` / `60` | Seconds |
+
+**Collection runs**
+
+| Setting | Default | Description |
+|---|---|---|
+| `COLLECTION_CONCURRENCY` | `8` | Devices collected in parallel within one run |
+| `COLLECTION_JOB_TIMEOUT` | `7200` | Seconds before the background job is stopped |
+| `RESULT_RETENTION_DAYS` | `90` | Per-device results older than this are deleted (`0` = keep) |
+| `COLLECT_INTERFACES_DATA` | `True` | Collect interfaces and update interfaces, IP and MAC addresses in NetBox |
+| `COLLECT_PORT_CHANNEL_DATA` | `True` | Create LAGs and LAG membership |
+
+**Storage**
+
+| Setting | Default | Description |
+|---|---|---|
+| `CONFIGS_REPO_DIR` | `/device_configs` | Git work tree for the configs |
+| `CONFIGS_SUBPATH` | `netbox` | Sub-directory for `<hostname>_running.txt` files |
+| `SENSITIVE_PREFIXES` | `username`, `ssh`, `snmp-server user`, `crypto`, `key`, `password` | Lines starting with these words are removed before storing; a removed top-level line takes its indented block with it |
+| `VOLATILE_LINE_PATTERNS` | timestamp lines, `ntp clock-period` | Regexes; lines that are ignored when deciding whether a config changed |
+| `GIT_REMOTE` | `{}` | Remote push: `ENABLED` (`True`), `URL`, `NAME` (`origin`), `BRANCH` (`netbox`), `SSH_KEY_PATH`, `AUTHOR` (`Netbox <netbox@example.com>`) |
+
+**Other**
+
+| Setting | Default | Description |
+|---|---|---|
+| `CF_NAME_SW_VERSION`, `CF_NAME_SSH`, `CF_NAME_LAST_COLLECT_DATE`, `CF_NAME_LAST_COLLECT_TIME` | `version`, `ssh`, `last_collect_date`, `last_collect_time` | Custom field names (empty = do not write) |
+| `COMPLIANCE_MAX_CONFIG_AGE_DAYS` | `7` | Older configs are reported as stale instead of being checked |
+
+### Operational notes
+
+- A collection run is one background job; it talks to up to `COLLECTION_CONCURRENCY` devices at a time and makes **one Git commit per run**. While a long run is in progress it occupies one RQ worker, so run at least two workers if other background tasks (webhooks, scripts) must not wait. Runs never overlap; a second run waits for the first.
+- The plugin expects to be the only writer of the Git branch. A commit that could not be pushed is kept and pushed by the next run.
+- Changes the plugin makes in NetBox appear in the change log under the user who started the run (scheduled runs: the user who saved the schedule). They can trigger event rules like any other change.
+
+---
+
+## How the code is organised
+
+| Module | Responsibility |
+|---|---|
+| `__init__.py` | Plugin registration (`PluginConfig`) |
+| `configuration.py` | All settings, parsed and validated once (`get_settings()`) |
+| `permissions.py` | Permission names; registers `collect_config` / `view_config` on devices |
+| `models.py` | Database models: compliance templates, services, rules, assignments, results, schedules |
+| `collection/targets.py` | Which devices a run touches and how to reach them (address, driver, credentials) |
+| `collection/connection.py` | One SSH/Telnet session per device with scrapli; raw command output, no database access |
+| `collection/parsers.py` | Command output -> plain dataclasses |
+| `collection/sanitize.py` | Removing secrets from configs |
+| `collection/netbox_sync.py` | Writing device data into NetBox, with a report of what changed |
+| `collection/runner.py` | One run end to end: threads for device I/O, then storage, NetBox, compliance, Git commit, job log |
+| `storage.py` | Config files and everything Git (commit, push, history) |
+| `compliance/diff.py`, `compliance/engine.py` | Config diff engine; templates that apply to a device and the verdict |
+| `jobs.py` | Background jobs: manual runs, schedules, compliance checks |
+| `signals.py` | Keeps each schedule's recurring job in sync with the schedule |
+| `webhook.py` | Schedule summary webhook |
+| `views.py`, `urls.py`, `forms.py`, `tables.py`, `filtersets.py`, `navigation.py`, `template_content.py`, `templates/` | Web UI |
+| `api/` | REST API |
 
 ---
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development setup guide, including how to run a local NetBox stack with Docker Compose, the pre-commit hook setup, and commit message conventions.
-
----
+See [CONTRIBUTING.md](CONTRIBUTING.md). Upgrade notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
