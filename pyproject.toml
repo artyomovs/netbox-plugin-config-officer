@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "netbox-plugin-config-officer-2"
-version = "0.1.25"
+version = "0.1.26"
 description = "NetBox plugin for collecting running configs, tracking diffs and checking compliance with templates"
 authors = [
     "Michal Juskiewicz <m.juskiewicz66@gmail.com>",

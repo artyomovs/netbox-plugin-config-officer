@@ -12,7 +12,7 @@ class NetboxConfigOfficer(PluginConfig):
     name = "config_officer"
     verbose_name = "Config officer"
     description = "Cisco configuration collector and template compliance"
-    version = "0.1.25"
+    version = "0.1.26"
     author = "Sergei Artemov, Michal Juskiewicz"
     author_email = "artemov.sergey1989@gmail.com, m.juskiewicz66@gmail.com"
     base_url = "config_officer"
