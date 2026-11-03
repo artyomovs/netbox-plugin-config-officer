@@ -1,370 +1,283 @@
-"""Tables for config_officer plugin - NetBox 4.x compatible."""
+"""Tables rendered by the list views (all support column configuration and CSV export)."""
 
 import django_tables2 as tables
+from core.models import Job
 from dcim.models import Device
-from django_tables2.utils import Accessor
-from netbox.tables import NetBoxTable, TagColumn, ToggleColumn
+from django.utils.translation import gettext_lazy as _
+from netbox.tables import NetBoxTable, columns
 
 from .models import Collection, CollectSchedule, Service, ServiceRule, Template
 
-# ---------------------------------------------------------------------------
-# Template columns (raw HTML rendered inside TemplateColumn)
-# ---------------------------------------------------------------------------
 
-TEMPLATE_LINK = """
-<a href="{% url 'plugins:config_officer:template' pk=record.pk %}">
-    {{ record.name|default:"&mdash;" }}
-</a>
-"""
-
-TEMPLATE_TEXT = """
-<button type="button" class="btn btn-link btn-sm collapsed text-muted p-0"
-        data-bs-toggle="collapse" data-bs-target="#cfg_{{ record.pk }}">
-    Expand
-</button>
-<div id="cfg_{{ record.pk }}" class="collapse">
-    <pre class="m-0 mt-1 small"><code>{{ record.configuration }}</code></pre>
-</div>
-"""
-
-SERVICE_TEMPLATES = """
-{% for service in record.get_services_list %}
-    <a href="{% url 'plugins:config_officer:service' pk=service.pk %}">{{ service.name }}</a><br>
-{% empty %}
-    &mdash;
-{% endfor %}
-"""
-
-TEMPLATE_ACTIONS = """
-<a href="{% url 'plugins:config_officer:template_edit' pk=record.pk %}"
-   class="btn btn-warning btn-sm" title="Edit"><i class="mdi mdi-pencil"></i></a>
-<a href="{% url 'plugins:config_officer:template_delete' pk=record.pk %}"
-   class="btn btn-danger btn-sm" title="Delete"><i class="mdi mdi-trash-can"></i></a>
-"""
-
-SERVICE_LINK = """
-<a href="{% url 'plugins:config_officer:service' pk=record.pk %}">
-    {{ record.name|default:"&mdash;" }}
-</a>
-"""
-
-SERVICE_ACTIONS = """
-<a href="{% url 'plugins:config_officer:service_edit' pk=record.pk %}"
-   class="btn btn-warning btn-sm" title="Edit"><i class="mdi mdi-pencil"></i></a>
-<a href="{% url 'plugins:config_officer:service_delete' pk=record.pk %}"
-   class="btn btn-danger btn-sm" title="Delete"><i class="mdi mdi-trash-can"></i></a>
-"""
-
-RULE_SERVICE_LINK = """
-<a href="{% url 'plugins:config_officer:service' pk=record.service.pk %}">
-    {{ record.service|default:"&mdash;" }}
-</a>
-"""
-
-RULE_TEMPLATE_LINK = """
-{% if record.template %}
-<a href="{% url 'plugins:config_officer:template' pk=record.template.pk %}">
-    {{ record.template }}
-</a>
-{% else %}
-&mdash;
-{% endif %}
-"""
-
-DEVICE_ROLE = """{{ record.device_role.all|join:", "|default:"any" }}"""
-DEVICE_TYPE = """{{ record.device_type.all|join:", "|default:"any" }}"""
-
-RULE_ACTIONS = """
-<a href="{% url 'plugins:config_officer:service_rule_edit' pk=record.pk %}"
-   class="btn btn-warning btn-sm" title="Edit"><i class="mdi mdi-pencil"></i></a>
-<a href="{% url 'plugins:config_officer:service_rule_delete' pk=record.pk %}"
-   class="btn btn-danger btn-sm" title="Delete"><i class="mdi mdi-trash-can"></i></a>
-"""
-
-SERVICE_MAPPING_DEVICE_LINK = """
-<a href="{% url 'dcim:device' pk=record.pk %}">
-    {{ record.name|default:"UNKNOWN" }}
-</a>
-"""
-
-ATTACHED_SERVICES_LIST = """
-{% if record.compliance %}
-    {% for service in record.compliance.get_services %}
-        <a href="{% url 'plugins:config_officer:service' pk=service.pk %}">{{ service.name }}</a><br>
-    {% empty %}
-        &mdash;
-    {% endfor %}
-{% else %}
-    &mdash;
-{% endif %}
-"""
-
-COMPLIANCE_STATUS = """
-{% if record.compliance %}
-    <a href="{% url 'plugins:config_officer:compliance' device=record.pk %}">
-        {% if record.compliance.status == 'compliance' %}
-            <span class="badge bg-success">{{ record.compliance.status }}</span>
-        {% else %}
-            <span class="badge bg-danger">{{ record.compliance.status }}</span>
-        {% endif %}
-    </a>
-{% else %}
-    &mdash;
-{% endif %}
-"""
-
-COMPLIANCE_NOTES = """
-{% if record.compliance %}
-    {% if record.compliance.notes %}
-        <span class="text-warning">{{ record.compliance.notes }}</span>
-    {% else %}
-        <a href="{% url 'plugins:config_officer:compliance' device=record.pk %}">details</a>
-    {% endif %}
-{% else %}
-    &mdash;
-{% endif %}
-"""
-
-COLLECTION_DELETE = """
-<a href="?pk={{ record.pk }}" class="btn btn-danger btn-sm" title="Delete">
-    <i class="mdi mdi-trash-can"></i>
-</a>
-"""
-
-COLLECT_SCHEDULE = """
-<a href="{% url 'plugins:config_officer:collectschedule_edit' pk=record.pk %}"
-    class="btn btn-sm btn-warning">Edit</a>
-<a href="{% url 'plugins:config_officer:collectschedule_delete' pk=record.pk %}"
-    class="btn btn-sm btn-danger ms-1">Delete</a>
-<a href="{% url 'plugins:config_officer:collectschedule_run_now' pk=record.pk %}"
-    class="btn btn-sm btn-primary ms-1">Run now</a>
-"""
-
-
-# ---------------------------------------------------------------------------
-# Collection
-#
-# MUST use plain tables.Table, NOT NetBoxTable.
-# NetBoxTable auto-generates links to '<model>_edit' and '<model>_delete' URL
-# names via its ActionsColumn. Collection has no standard NetBox CRUD views,
-# so those URL names don't exist -> NoReverseMatch crash.
-# ---------------------------------------------------------------------------
-
-
-class CollectionTable(tables.Table):
-    pk = ToggleColumn()
-    device = tables.Column(
-        verbose_name="Hostname",
-        linkify=lambda record: record.device.get_absolute_url() if record.device else None,
-    )
-    status = tables.Column(verbose_name="Status")
-    failed_reason = tables.Column(verbose_name="Failed Reason")
-    message = tables.Column(verbose_name="Message")
-
-    class Meta:
-        model = Collection
-        fields = ("pk", "timestamp", "device", "status", "failed_reason", "message")
-        attrs = {"class": "table table-hover table-headings"}
-        empty_text = "No collection tasks found."
-
-
-# ---------------------------------------------------------------------------
-# Template
-# ---------------------------------------------------------------------------
-
-
-class TemplateListTable(tables.Table):
-    pk = ToggleColumn()
-    name = tables.TemplateColumn(
-        template_code=TEMPLATE_LINK,
-        verbose_name="Template",
-        order_by="name",
-    )
-    description = tables.Column(default="—")
-    configuration = tables.TemplateColumn(
-        template_code=TEMPLATE_TEXT,
-        verbose_name="Config",
-        orderable=False,
-    )
+class TemplateTable(NetBoxTable):
+    name = tables.Column(linkify=True)
     services = tables.TemplateColumn(
-        template_code=SERVICE_TEMPLATES,
-        verbose_name="Services",
+        template_code="""{% for s in record.get_services %}<a href="{{ s.get_absolute_url }}">{{ s }}</a>{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}""",
         orderable=False,
+        verbose_name=_("Used by services"),
     )
-    actions = tables.TemplateColumn(
-        template_code=TEMPLATE_ACTIONS,
-        verbose_name="",
-        orderable=False,
-    )
+    tags = columns.TagColumn(url_name="plugins:config_officer:template_list")
 
-    class Meta:
+    class Meta(NetBoxTable.Meta):
         model = Template
-        fields = ("pk", "name", "description", "configuration", "services", "actions")
-        attrs = {"class": "table table-hover table-headings"}
-        empty_text = "No templates found."
+        fields = (
+            "pk",
+            "id",
+            "name",
+            "description",
+            "services",
+            "tags",
+            "created",
+            "last_updated",
+            "actions",
+        )
+        default_columns = ("pk", "name", "description", "services")
 
 
-# ---------------------------------------------------------------------------
-# Service
-# ---------------------------------------------------------------------------
-
-
-class ServiceListTable(tables.Table):
-    pk = ToggleColumn()
-    name = tables.TemplateColumn(
-        template_code=SERVICE_LINK,
-        verbose_name="Service",
-        order_by="name",
+class ServiceTable(NetBoxTable):
+    name = tables.Column(linkify=True)
+    rule_count = columns.LinkedCountColumn(
+        viewname="plugins:config_officer:servicerule_list",
+        url_params={"service_id": "pk"},
+        verbose_name=_("Rules"),
     )
-    description = tables.Column(default="—")
-    actions = tables.TemplateColumn(
-        template_code=SERVICE_ACTIONS,
-        verbose_name="",
-        orderable=False,
+    device_count = columns.LinkedCountColumn(
+        viewname="plugins:config_officer:compliance_list",
+        url_params={"compliance_service_id": "pk"},
+        verbose_name=_("Devices"),
     )
+    tags = columns.TagColumn(url_name="plugins:config_officer:service_list")
 
-    class Meta:
+    class Meta(NetBoxTable.Meta):
         model = Service
-        fields = ("pk", "name", "description", "actions")
-        attrs = {"class": "table table-hover table-headings"}
-        empty_text = "No services found."
+        fields = (
+            "pk",
+            "id",
+            "name",
+            "description",
+            "rule_count",
+            "device_count",
+            "tags",
+            "created",
+            "last_updated",
+            "actions",
+        )
+        default_columns = ("pk", "name", "description", "rule_count", "device_count")
 
 
-# ---------------------------------------------------------------------------
-# ServiceRule
-# ---------------------------------------------------------------------------
-
-
-class ServiceRuleListTable(tables.Table):
-    pk = ToggleColumn()
-    service = tables.TemplateColumn(template_code=RULE_SERVICE_LINK, verbose_name="Service")
-    device_role = tables.TemplateColumn(template_code=DEVICE_ROLE, verbose_name="Device Role")
-    device_type = tables.TemplateColumn(template_code=DEVICE_TYPE, verbose_name="Device Type")
-    template = tables.TemplateColumn(template_code=RULE_TEMPLATE_LINK, verbose_name="Template")
-    description = tables.Column(default="—")
-    actions = tables.TemplateColumn(
-        template_code=RULE_ACTIONS,
-        verbose_name="",
-        orderable=False,
+class ServiceRuleTable(NetBoxTable):
+    id = tables.Column(linkify=True, verbose_name=_("ID"))
+    service = tables.Column(linkify=True)
+    template = tables.Column(linkify=True)
+    device_roles = columns.ManyToManyColumn(
+        linkify_item=True, verbose_name=_("Roles"), default=_("any")
     )
+    device_types = columns.ManyToManyColumn(
+        linkify_item=True, verbose_name=_("Device types"), default=_("any")
+    )
+    tags = columns.TagColumn(url_name="plugins:config_officer:servicerule_list")
 
-    class Meta:
+    class Meta(NetBoxTable.Meta):
         model = ServiceRule
         fields = (
             "pk",
+            "id",
             "service",
-            "device_role",
-            "device_type",
             "template",
+            "device_roles",
+            "device_types",
             "description",
+            "tags",
             "actions",
         )
-        attrs = {"class": "table table-hover table-headings"}
-        empty_text = "No service rules found."
+        default_columns = (
+            "pk",
+            "id",
+            "service",
+            "template",
+            "device_roles",
+            "device_types",
+            "description",
+        )
 
 
-# ---------------------------------------------------------------------------
-# ServiceMapping (Device list with compliance columns)
-#
-# Uses NetBoxTable because it's based on the standard Device model which DOES
-# have all standard NetBox CRUD URLs - NetBoxTable's ActionsColumn works here.
-# ---------------------------------------------------------------------------
+SCHEDULE_TARGETS = """
+{% if record.all_devices %}<span class="badge text-bg-blue">all devices</span>{% endif %}
+{% for tag in record.device_tags.all %}{% tag tag %}{% endfor %}
+{% with count=record.devices.count %}{% if count %}<span class="text-secondary">{{ count }} device{{ count|pluralize }}</span>{% endif %}{% endwith %}
+"""
 
 
-class ServiceMappingListTable(NetBoxTable):
-    pk = ToggleColumn()
-    name = tables.TemplateColumn(
-        template_code=SERVICE_MAPPING_DEVICE_LINK,
-        verbose_name="Device",
-        order_by="name",
+class CollectScheduleTable(NetBoxTable):
+    name = tables.Column(linkify=True)
+    enabled = columns.BooleanColumn()
+    targets = tables.TemplateColumn(
+        template_code=SCHEDULE_TARGETS, orderable=False, verbose_name=_("Devices")
     )
-    service = tables.TemplateColumn(
-        template_code=ATTACHED_SERVICES_LIST,
-        verbose_name="Service",
-        orderable=False,
+    interval_hours = tables.Column(verbose_name=_("Interval"))
+    next_run = columns.DateTimeColumn(verbose_name=_("Start at"))
+    webhook_url = columns.BooleanColumn(verbose_name=_("Webhook"))
+    tags = columns.TagColumn(url_name="plugins:config_officer:collectschedule_list")
+
+    class Meta(NetBoxTable.Meta):
+        model = CollectSchedule
+        fields = (
+            "pk",
+            "id",
+            "name",
+            "enabled",
+            "targets",
+            "interval_hours",
+            "next_run",
+            "webhook_url",
+            "tags",
+            "actions",
+        )
+        default_columns = (
+            "pk",
+            "name",
+            "enabled",
+            "targets",
+            "interval_hours",
+            "next_run",
+            "webhook_url",
+        )
+
+    def render_interval_hours(self, value):
+        if value % 24 == 0:
+            days = value // 24
+            return _("every day") if days == 1 else _("every {n} days").format(n=days)
+        return _("every hour") if value == 1 else _("every {n} hours").format(n=value)
+
+
+RESULT_RUN = """{% if record.job_id %}<a href="{% url 'plugins:config_officer:run' pk=record.job_id %}">#{{ record.job_id }}</a>{% else %}&mdash;{% endif %}"""
+
+
+class CollectionTable(NetBoxTable):
+    timestamp = columns.DateTimeColumn(linkify=True, verbose_name=_("Time"))
+    device = tables.Column(linkify=True)
+    status = columns.ChoiceFieldColumn()
+    failed_reason = columns.ChoiceFieldColumn(verbose_name=_("Failure"))
+    transport = columns.ChoiceFieldColumn()
+    config_changed = columns.BooleanColumn(verbose_name=_("Config changed"))
+    duration = tables.Column(verbose_name=_("Duration (s)"))
+    run = tables.TemplateColumn(template_code=RESULT_RUN, order_by="job_id", verbose_name=_("Run"))
+    actions = columns.ActionsColumn(actions=("delete",))
+
+    class Meta(NetBoxTable.Meta):
+        model = Collection
+        fields = (
+            "pk",
+            "id",
+            "timestamp",
+            "device",
+            "status",
+            "failed_reason",
+            "transport",
+            "config_changed",
+            "duration",
+            "message",
+            "run",
+            "actions",
+        )
+        default_columns = (
+            "pk",
+            "timestamp",
+            "device",
+            "status",
+            "config_changed",
+            "message",
+            "run",
+        )
+
+    def render_duration(self, value):
+        return f"{value:.1f}"
+
+
+DEVICE_SERVICES = """{% for m in record.servicemapping_set.all %}<a href="{{ m.service.get_absolute_url }}">{{ m.service }}</a>{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}"""
+DEVICE_COMPLIANCE = """{% if record.compliance %}<a href="{% url 'dcim:device_config_officer_compliance' pk=record.pk %}">{% badge record.compliance.get_status_display bg_color=record.compliance.get_status_color %}</a>{% else %}&mdash;{% endif %}"""
+
+
+class DeviceComplianceTable(NetBoxTable):
+    name = tables.Column(linkify=True, verbose_name=_("Device"))
+    site = tables.Column(linkify=True)
+    role = tables.Column(linkify=True)
+    device_type = tables.Column(linkify=True, verbose_name=_("Type"))
+    tenant = tables.Column(linkify=True)
+    primary_ip4 = tables.Column(linkify=True, verbose_name=_("IPv4"))
+    services = tables.TemplateColumn(
+        template_code=DEVICE_SERVICES, orderable=False, verbose_name=_("Services")
     )
-    tenant = tables.Column()
-    device_role = tables.Column(accessor="role", verbose_name="Role")
-    device_type = tables.LinkColumn(
-        viewname="dcim:devicetype",
-        args=[Accessor("device_type.pk")],
-        verbose_name="Type",
+    compliance = tables.TemplateColumn(
+        template_code=DEVICE_COMPLIANCE, order_by="compliance__status", verbose_name=_("Compliance")
     )
-    tags = TagColumn(url_name="dcim:device_list")
-    status = tables.TemplateColumn(
-        template_code=COMPLIANCE_STATUS,
-        verbose_name="Compliance",
-        orderable=False,
+    notes = tables.Column(accessor="compliance__notes", verbose_name=_("Notes"))
+    last_checked = columns.DateTimeColumn(
+        accessor="compliance__last_checked", verbose_name=_("Last checked")
     )
-    notes = tables.TemplateColumn(
-        template_code=COMPLIANCE_NOTES,
-        verbose_name="Notes",
-        orderable=False,
-    )
+    diff = tables.Column(accessor="compliance__diff", verbose_name=_("Missing lines"))
+    tags = columns.TagColumn(url_name="dcim:device_list")
+    actions = columns.ActionsColumn(actions=())
 
     class Meta(NetBoxTable.Meta):
         model = Device
         fields = (
             "pk",
+            "id",
             "name",
-            "service",
-            "tenant",
-            "device_role",
+            "site",
+            "role",
             "device_type",
-            "tags",
-            "status",
+            "tenant",
+            "primary_ip4",
+            "services",
+            "compliance",
             "notes",
+            "last_checked",
+            "diff",
+            "tags",
         )
         default_columns = (
             "pk",
             "name",
-            "service",
-            "tenant",
-            "device_role",
+            "role",
             "device_type",
-            "tags",
-            "status",
+            "services",
+            "compliance",
             "notes",
+            "last_checked",
         )
 
 
-# ---------------------------------------------------------------------------
-# Collection Schedules
-# ---------------------------------------------------------------------------
+RUN_STATUS = """{% badge record.get_status_display bg_color=record.get_status_color %}"""
+RUN_SUMMARY = """{% with s=record.data.summary %}{% if s %}<span class="text-success">{{ s.succeeded }} ok</span> &middot; <span class="{% if s.failed %}text-danger{% else %}text-secondary{% endif %}">{{ s.failed }} failed</span> &middot; {{ s.changed }} changed{% elif record.data.progress %}{{ record.data.progress.done }} / {{ record.data.progress.total }}{% else %}&mdash;{% endif %}{% endwith %}"""
 
 
-class CollectScheduleTable(NetBoxTable):
-    name = tables.Column(linkify=True)
-    devices = tables.Column(
-        empty_values=(),
+class RunTable(tables.Table):
+    """Collection runs (NetBox core Jobs) on the collection page."""
+
+    id = tables.TemplateColumn(
+        template_code="""<a href="{% url 'plugins:config_officer:run' pk=record.pk %}">#{{ record.pk }}</a>""",
+        verbose_name=_("Run"),
+    )
+    trigger = tables.TemplateColumn(
+        template_code="""{% if record.object %}{{ record.object|linkify }}{% else %}{{ record.data.trigger|default:"manual" }}{% endif %}""",
+        verbose_name=_("Started by"),
         orderable=False,
-        verbose_name="Devices",
     )
-    interval_hours = tables.Column(verbose_name="Interval")
-    next_run = tables.DateTimeColumn(
-        format="Y-m-d H:i",
-        verbose_name="Next run",
+    target = tables.Column(
+        accessor="data__target", verbose_name=_("Devices"), default="", orderable=False
     )
-    enabled = tables.BooleanColumn(verbose_name="Enabled")
-    actions = tables.TemplateColumn(
-        template_code=COLLECT_SCHEDULE,
-        orderable=False,
-        verbose_name="",
+    status = tables.TemplateColumn(template_code=RUN_STATUS)
+    summary = tables.TemplateColumn(
+        template_code=RUN_SUMMARY, orderable=False, verbose_name=_("Result")
     )
+    user = tables.Column()
+    created = columns.DateTimeColumn()
+    completed = columns.DateTimeColumn()
 
     class Meta:
-        model = CollectSchedule
-        fields = ("name", "devices", "interval_hours", "next_run", "enabled", "actions")
-        attrs = {"class": "table table-hover table-headings"}
-
-    def render_devices(self, record):
-        count = record.devices.count()
-        return f"{count} device{'s' if count != 1 else ''}"
-
-    def render_interval_hours(self, value):
-        if value == 1:
-            return "Every hour"
-        if value < 24:
-            return f"Every {value} hours"
-        days = value // 24
-        return f"Every {days} day{'s' if days != 1 else ''}"
+        model = Job
+        fields = ("id", "trigger", "target", "status", "summary", "user", "created", "completed")
+        attrs = {"class": "table table-hover"}
+        empty_text = _("No collection has run yet.")

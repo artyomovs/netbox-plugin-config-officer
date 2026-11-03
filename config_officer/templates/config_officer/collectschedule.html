@@ -1,0 +1,58 @@
+{% extends 'generic/object.html' %}
+{% load i18n %}
+
+{% block extra_controls %}
+  {% if can_collect %}
+    <form method="post" action="{% url 'plugins:config_officer:collectschedule_run' pk=object.pk %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary"><i class="mdi mdi-play"></i> {% trans "Run now" %}</button>
+    </form>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Schedule" %}</h2>
+      <table class="table table-hover attr-table">
+        <tr><th scope="row">{% trans "Name" %}</th><td>{{ object.name }}</td></tr>
+        <tr><th scope="row">{% trans "Enabled" %}</th><td>{% checkmark object.enabled %}</td></tr>
+        <tr><th scope="row">{% trans "Interval" %}</th><td>{% blocktrans with hours=object.interval_hours %}every {{ hours }} hour(s){% endblocktrans %}</td></tr>
+        <tr><th scope="row">{% trans "Start at" %}</th><td>{{ object.next_run|isodatetime }}</td></tr>
+        <tr>
+          <th scope="row">{% trans "Next run" %}</th>
+          <td>{% if next_job %}{{ next_job.scheduled|isodatetime }}{% elif object.enabled %}<span class="text-warning">{% trans "not scheduled - save the schedule to schedule it" %}</span>{% else %}{% trans "paused" %}{% endif %}</td>
+        </tr>
+        <tr><th scope="row">{% trans "Webhook" %}</th><td>{{ object.webhook_url|placeholder }}{% if object.webhook_secret %} <span class="badge text-bg-green">{% trans "signed" %}</span>{% endif %}</td></tr>
+      </table>
+    </div>
+    {% include 'inc/panels/tags.html' %}
+    {% include 'inc/panels/custom_fields.html' %}
+  </div>
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Devices" %} <span class="badge text-bg-secondary">{{ device_count }}</span></h2>
+      <table class="table table-hover attr-table">
+        <tr><th scope="row">{% trans "All devices" %}</th><td>{% checkmark object.all_devices %}</td></tr>
+        <tr><th scope="row">{% trans "With tags" %}</th><td>{% for tag in object.device_tags.all %}{% tag tag %}{% empty %}&mdash;{% endfor %}</td></tr>
+        <tr><th scope="row">{% trans "Selected" %}</th><td>{% for device in object.devices.all %}{{ device|linkify }}{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}</td></tr>
+      </table>
+      <div class="card-footer text-secondary small">{% trans "Tags are resolved when the schedule runs; the count above is the current number of matching devices." %}</div>
+    </div>
+    <div class="card">
+      <h2 class="card-header">{% trans "Recent runs" %}</h2>
+      <ul class="list-group list-group-flush">
+        {% for run in last_runs %}
+          <li class="list-group-item d-flex justify-content-between">
+            <a href="{% url 'plugins:config_officer:run' pk=run.pk %}">#{{ run.pk }} &middot; {{ run.created|isodatetime }}</a>
+            {% badge run.get_status_display bg_color=run.get_status_color %}
+          </li>
+        {% empty %}
+          <li class="list-group-item text-secondary">{% trans "This schedule has not run yet." %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

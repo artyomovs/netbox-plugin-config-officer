@@ -1,0 +1,95 @@
+{% extends 'base/layout.html' %}
+{% load form_helpers %}
+{% load render_table from django_tables2 %}
+{% load i18n %}
+
+{% block title %}{% trans "Configuration collection" %}{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  {# Start a run #}
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Run collection" %}</h2>
+      <div class="card-body">
+        {% if can_collect %}
+          <form method="post" id="run-collection-form">
+            {% csrf_token %}
+            {% render_field form.target %}
+            <div data-target-field="tags">{% render_field form.tags %}</div>
+            <div data-target-field="devices">{% render_field form.devices %}</div>
+            {% render_field form.statuses %}
+            <div class="text-end">
+              <button type="submit" class="btn btn-primary">
+                <i class="mdi mdi-download-network"></i> {% trans "Collect now" %}
+              </button>
+            </div>
+          </form>
+        {% else %}
+          <p class="text-secondary mb-0">
+            {% trans "You can view runs, but starting a collection requires the" %}
+            <code>collect_config</code> {% trans "permission on devices." %}
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Overview #}
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Latest result per device" %}</h2>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-3">
+          {% for value, label, color, count in status_counts %}
+            <a class="text-decoration-none" href="{% url 'plugins:config_officer:collection_list' %}?status={{ value }}">
+              <span class="badge text-bg-{{ color }} fs-5">{{ count }}</span> {{ label }}
+            </a>
+          {% endfor %}
+        </div>
+        <p class="text-secondary small mt-2 mb-0">
+          {% trans "Counts the most recent result of every device that was ever collected." %}
+          <a href="{% url 'plugins:config_officer:collection_list' %}">{% trans "All results" %}</a>
+        </p>
+      </div>
+    </div>
+    <div class="card">
+      <h2 class="card-header">
+        {% trans "Active schedules" %}
+        <div class="card-actions">
+          <a href="{% url 'plugins:config_officer:collectschedule_list' %}" class="btn btn-ghost-primary btn-sm">{% trans "All schedules" %}</a>
+        </div>
+      </h2>
+      <ul class="list-group list-group-flush">
+        {% for schedule in schedules %}
+          <li class="list-group-item"><a href="{{ schedule.get_absolute_url }}">{{ schedule }}</a></li>
+        {% empty %}
+          <li class="list-group-item text-secondary">{% trans "No enabled schedules." %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="card-header">{% trans "Recent runs" %}</h2>
+  <div class="table-responsive">{% render_table runs_table 'inc/table.html' %}</div>
+</div>
+
+<script>
+  // Show only the field that belongs to the chosen target.
+  (function () {
+    const form = document.getElementById("run-collection-form");
+    if (!form) return;
+    function update() {
+      const checked = form.querySelector("input[name=target]:checked");
+      const target = checked ? checked.value : "";
+      form.querySelectorAll("[data-target-field]").forEach(function (el) {
+        el.classList.toggle("d-none", el.dataset.targetField !== target);
+      });
+    }
+    form.querySelectorAll("input[name=target]").forEach(function (el) { el.addEventListener("change", update); });
+    update();
+  })();
+</script>
+{% endblock %}

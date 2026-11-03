@@ -1,0 +1,70 @@
+{% extends 'generic/object.html' %}
+{% load i18n %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Collection result" %}</h2>
+      <table class="table table-hover attr-table">
+        <tr><th scope="row">{% trans "Device" %}</th><td>{{ object.device|linkify|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Time" %}</th><td>{{ object.timestamp|isodatetime }}</td></tr>
+        <tr><th scope="row">{% trans "Status" %}</th><td>{% badge object.get_status_display bg_color=object.get_status_color %}</td></tr>
+        {% if object.failed_reason %}<tr><th scope="row">{% trans "Failure" %}</th><td>{{ object.get_failed_reason_display }}</td></tr>{% endif %}
+        <tr><th scope="row">{% trans "Message" %}</th><td>{{ object.message|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Transport" %}</th><td>{{ object.get_transport_display|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Duration" %}</th><td>{% if object.duration is not None %}{{ object.duration|floatformat:1 }} s{% else %}&mdash;{% endif %}</td></tr>
+        <tr><th scope="row">{% trans "Config changed" %}</th><td>{% if object.config_changed is None %}&mdash;{% else %}{% checkmark object.config_changed %}{% endif %}</td></tr>
+        <tr><th scope="row">{% trans "Run" %}</th><td>{% if object.job_id %}<a href="{% url 'plugins:config_officer:run' pk=object.job_id %}">#{{ object.job_id }}</a>{% else %}&mdash;{% endif %}</td></tr>
+      </table>
+    </div>
+    {% with device=object.details.device %}
+      {% if device %}
+        <div class="card">
+          <h2 class="card-header">{% trans "Reported by the device" %}</h2>
+          <table class="table table-hover attr-table">
+            <tr><th scope="row">{% trans "Hostname" %}</th><td>{{ device.hostname|placeholder }}</td></tr>
+            <tr><th scope="row">{% trans "Software version" %}</th><td>{{ device.version|placeholder }}</td></tr>
+            <tr><th scope="row">{% trans "Model" %}</th><td>{{ device.model|placeholder }}</td></tr>
+            <tr><th scope="row">{% trans "Serial" %}</th><td>{{ device.serial|placeholder }}</td></tr>
+            <tr><th scope="row">{% trans "Interfaces parsed" %}</th><td>{{ device.interfaces }}</td></tr>
+          </table>
+        </div>
+      {% endif %}
+    {% endwith %}
+  </div>
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Changes in NetBox" %}</h2>
+      {% with nb=object.details.netbox %}
+        {% if nb %}
+          <table class="table table-hover attr-table">
+            {% if nb.serial %}<tr><th scope="row">{% trans "Serial set" %}</th><td>{{ nb.serial }}</td></tr>{% endif %}
+            {% if nb.custom_fields %}<tr><th scope="row">{% trans "Custom fields" %}</th><td>{% for k, v in nb.custom_fields.items %}<code>{{ k }}</code> = {{ v }}<br>{% endfor %}</td></tr>{% endif %}
+            {% if nb.interfaces_created %}<tr><th scope="row">{% trans "Interfaces created" %}</th><td>{{ nb.interfaces_created|join:", " }}</td></tr>{% endif %}
+            {% if nb.interfaces_updated %}<tr><th scope="row">{% trans "Interfaces updated" %}</th><td>{% for name, fields in nb.interfaces_updated.items %}{{ name }} <span class="text-secondary">({{ fields|join:", " }})</span><br>{% endfor %}</td></tr>{% endif %}
+            {% if nb.lag_members %}<tr><th scope="row">{% trans "LAG membership" %}</th><td>{% for m in nb.lag_members %}{{ m }}<br>{% endfor %}</td></tr>{% endif %}
+            {% if nb.mac_addresses %}<tr><th scope="row">{% trans "MAC addresses" %}</th><td>{% for m in nb.mac_addresses %}{{ m }}<br>{% endfor %}</td></tr>{% endif %}
+            {% if nb.ip_addresses_created %}<tr><th scope="row">{% trans "IP addresses created" %}</th><td>{% for ip in nb.ip_addresses_created %}{{ ip }}<br>{% endfor %}</td></tr>{% endif %}
+            {% if nb.ip_addresses_updated %}<tr><th scope="row">{% trans "IP addresses updated" %}</th><td>{% for ip in nb.ip_addresses_updated %}{{ ip }}<br>{% endfor %}</td></tr>{% endif %}
+            {% if nb.vrfs_created %}<tr><th scope="row">{% trans "VRFs created" %}</th><td>{{ nb.vrfs_created|join:", " }}</td></tr>{% endif %}
+          </table>
+          {% if not nb.serial and not nb.custom_fields and not nb.interfaces_created and not nb.interfaces_updated and not nb.lag_members and not nb.mac_addresses and not nb.ip_addresses_created and not nb.ip_addresses_updated and not nb.vrfs_created %}
+            <div class="card-body text-secondary">{% trans "Nothing changed in NetBox." %}</div>
+          {% endif %}
+        {% else %}
+          <div class="card-body text-secondary">{% trans "NetBox was not updated." %}</div>
+        {% endif %}
+      {% endwith %}
+    </div>
+    <div class="card">
+      <h2 class="card-header">{% trans "Connection attempts and warnings" %}</h2>
+      <ul class="list-group list-group-flush font-monospace small">
+        {% for attempt in object.details.attempts %}<li class="list-group-item">{{ attempt }}</li>{% endfor %}
+        {% for warning in object.details.warnings %}<li class="list-group-item text-warning">{{ warning }}</li>{% endfor %}
+        {% if not object.details.attempts and not object.details.warnings %}<li class="list-group-item text-secondary">&mdash;</li>{% endif %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

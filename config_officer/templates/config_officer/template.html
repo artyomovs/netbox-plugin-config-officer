@@ -1,0 +1,40 @@
+{% extends 'generic/object.html' %}
+{% load i18n %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-12 col-lg-5">
+    <div class="card">
+      <h2 class="card-header">{% trans "Compliance template" %}</h2>
+      <table class="table table-hover attr-table">
+        <tr><th scope="row">{% trans "Name" %}</th><td>{{ object.name }}</td></tr>
+        <tr><th scope="row">{% trans "Description" %}</th><td>{{ object.description|placeholder }}</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h2 class="card-header">{% trans "Used by rules" %}</h2>
+      <ul class="list-group list-group-flush">
+        {% for rule in rules %}
+          <li class="list-group-item"><a href="{{ rule.get_absolute_url }}">{{ rule.service }}</a>{% if rule.description %} <span class="text-secondary">&mdash; {{ rule.description }}</span>{% endif %}</li>
+        {% empty %}
+          <li class="list-group-item text-secondary">{% trans "Not used by any service rule yet." %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% include 'inc/panels/tags.html' %}
+    {% include 'inc/panels/custom_fields.html' %}
+  </div>
+  <div class="col col-12 col-lg-7">
+    <div class="card">
+      <h2 class="card-header">
+        {% trans "Configuration" %}
+        <div class="card-actions">{% copy_content "template-config" %}</div>
+      </h2>
+      <div class="card-body">
+        <pre id="template-config" class="mb-0">{{ object.configuration|default:"" }}</pre>
+      </div>
+      <div class="card-footer text-secondary small">{% trans "{{ anything }} placeholders match any value." %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

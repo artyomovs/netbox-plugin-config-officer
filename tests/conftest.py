@@ -1,48 +1,29 @@
-"""
-tests/conftest.py
------------------
-Pytest configuration for unit tests that run without a full NetBox installation.
+"""Pytest configuration for the unit tests (they run without a NetBox installation).
 
-The problem: importing anything from the `config_officer` package triggers
-`config_officer/__init__.py`, which calls `from netbox.plugins import PluginConfig`.
-NetBox is not installed in the test environment, so the import fails immediately.
-
-The fix: register a minimal stub for the `netbox` namespace *before* any test
-module is collected. This satisfies the `PluginConfig` import without requiring
-NetBox itself to be present.
+Importing anything from ``config_officer`` runs ``config_officer/__init__.py``,
+which imports ``netbox.plugins.PluginConfig``. When NetBox is not installed, a
+minimal stub of that module is registered so pure-Python modules such as
+``config_officer.compliance.diff`` can be imported and tested.
 """
 
-from __future__ import annotations
-
+import importlib.util
 import sys
 import types
 
 
-def _make_netbox_stub() -> None:
-    """Inject a lightweight netbox.plugins stub into sys.modules."""
-    if "netbox" in sys.modules:
-        return  # already present (real NetBox or a previous stub)
-
-    # netbox
+def _install_netbox_stub() -> None:
+    if importlib.util.find_spec("netbox") is not None:
+        return  # real NetBox available
     netbox = types.ModuleType("netbox")
-
-    # netbox.plugins
     plugins = types.ModuleType("netbox.plugins")
 
-    class PluginConfig:
-        """Minimal stand-in for netbox.plugins.PluginConfig."""
+    class PluginConfig:  # minimal stand-in for netbox.plugins.PluginConfig
+        name = ""
 
-        name: str = ""
-
-        def __init_subclass__(cls, **kwargs: object) -> None:
-            super().__init_subclass__(**kwargs)
-
-    plugins.PluginConfig = PluginConfig  # type: ignore[attr-defined]
-    netbox.plugins = plugins  # type: ignore[attr-defined]
-
+    plugins.PluginConfig = PluginConfig
+    netbox.plugins = plugins
     sys.modules["netbox"] = netbox
     sys.modules["netbox.plugins"] = plugins
 
 
-# Run immediately when conftest.py is loaded - before any test collection
-_make_netbox_stub()
+_install_netbox_stub()

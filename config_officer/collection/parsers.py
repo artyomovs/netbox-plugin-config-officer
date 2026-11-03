@@ -1,19 +1,60 @@
-"""
-CLI output parsers for IOS-XE, IOS-XR and NX-OS devices.
+"""CLI output parsers: raw ``show`` text in, plain dataclasses out.
 
-Each parser class exposes only static methods so it can be used without
-instantiation and is easy to unit-test with raw strings.
+Pure functions without Django or network access, so they are easy to unit test
+with captured device output (see tests/fixtures/). The parsed result is turned
+into NetBox objects by netbox_sync.py.
+
+Supported commands:
+
+* IOS-XE (also used for IOS-XR): ``show version``, ``show interfaces``,
+  ``show ip interface``
+* NX-OS: ``show version``, ``show interface``
 """
 
 from __future__ import annotations
 
 import logging
 import re
-
-from .configuration import REGEX_IPP
-from .models import ParsedDevice, ParsedInterface
+from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+#: IPv4 address with prefix length, e.g. 10.0.0.1/24
+REGEX_IPP = r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}"
+
+
+@dataclass
+class ParsedInterface:
+    """Everything we know about a single interface after parsing CLI output."""
+
+    name: str
+    ip: str | None = None  # primary IP/prefix, e.g. "10.0.0.1/24"
+    secondary: list[str] = field(default_factory=list)  # secondary IPs/prefix
+    mac: str | None = None  # dotted-hex, e.g. "aabb.ccdd.eeff"
+    description: str | None = None
+    mtu: int | None = None
+    vrf: str | None = None
+    dhcp: bool = False
+    speed: str | None = None  # e.g. "1000Mbps"
+    duplex: str | None = None  # "full" | "half"
+    admin_up: bool | None = None
+    link_up: bool | None = None
+    is_mgmt: bool = False
+    lag: str | None = None  # normalised LAG name, e.g. "port-channel1"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+@dataclass
+class ParsedDevice:
+    """Identity information from ``show version`` plus the parsed interfaces."""
+
+    hostname: str = ""
+    version: str = ""
+    pid: str = ""  # product ID / hardware model
+    serial: str = ""
+    interfaces: dict[str, ParsedInterface] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +112,7 @@ class IOSXEParser:
         return result
 
     @staticmethod
-    def parse_show_interfaces(output: str, mgmt_ip: str) -> dict[str, ParsedInterface]:
+    def parse_show_interfaces(output: str, mgmt_ip: str) -> dict[str, ParsedInterface]:  # noqa: PLR0915
         """
         Parse 'show interfaces' full output.
         Returns a mapping of interface-name -> ParsedInterface.
@@ -120,7 +161,18 @@ class IOSXEParser:
                 current.mac = m.group(1)
                 continue
 
-            # Speed / duplex
+            # Duplex / speed, as printed by IOS / IOS-XE:
+            #   "  Full-duplex, 1000Mb/s, media type is ..."  or  "  Full Duplex, 1000Mbps, link type ..."
+            m = re.match(
+                r"^\s+(Full|Half|Auto)[- ]duplex,\s+(\d+)\s*(Kb|Mb|Gb)(?:/s|ps)",
+                line,
+                re.IGNORECASE,
+            )
+            if m:
+                current.duplex = m.group(1).lower()
+                current.speed = f"{m.group(2)}{m.group(3).capitalize()}ps"
+                continue
+            # Older format: "  ... 1000Mbps, full-duplex"
             m = re.match(r"^\s+.*?(\d+(?:Mb|Gb|Kb)?ps),?\s+([\w-]+)-duplex", line, re.IGNORECASE)
             if m:
                 current.speed = m.group(1)
@@ -315,3 +367,25 @@ class NXOSParser:
 
         logger.debug("[PARSER][NXOS] Parsed %d interfaces", len(ifaces))
         return ifaces
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def parse_device_output(driver: str, output, mgmt_ip: str) -> ParsedDevice:
+    """Parse the raw output collected by connection.collect_output for ``driver``."""
+    if driver == "nxos":
+        device = NXOSParser.parse_show_version(output.show_version)
+        if output.show_interfaces:
+            device.interfaces = NXOSParser.parse_show_interfaces(output.show_interfaces, mgmt_ip)
+        return device
+
+    # IOS-XE and IOS-XR share the IOS-style output format closely enough.
+    device = IOSXEParser.parse_show_version(output.show_version)
+    if output.show_interfaces:
+        device.interfaces = IOSXEParser.parse_show_interfaces(output.show_interfaces, mgmt_ip)
+        if output.show_ip_interface:
+            IOSXEParser.parse_show_ip_interface(output.show_ip_interface, device.interfaces)
+    return device

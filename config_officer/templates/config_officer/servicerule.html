@@ -1,0 +1,27 @@
+{% extends 'generic/object.html' %}
+{% load i18n %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Service rule" %}</h2>
+      <table class="table table-hover attr-table">
+        <tr><th scope="row">{% trans "Service" %}</th><td>{{ object.service|linkify }}</td></tr>
+        <tr><th scope="row">{% trans "Template" %}</th><td>{{ object.template|linkify|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Description" %}</th><td>{{ object.description|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Device roles" %}</th><td>{% for role in object.device_roles.all %}{{ role|linkify }}{% if not forloop.last %}, {% endif %}{% empty %}{% trans "any" %}{% endfor %}</td></tr>
+        <tr><th scope="row">{% trans "Device types" %}</th><td>{% for dt in object.device_types.all %}{{ dt|linkify }}{% if not forloop.last %}, {% endif %}{% empty %}{% trans "any" %}{% endfor %}</td></tr>
+      </table>
+    </div>
+    {% include 'inc/panels/tags.html' %}
+    {% include 'inc/panels/custom_fields.html' %}
+  </div>
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Template configuration" %}</h2>
+      <div class="card-body"><pre class="mb-0">{{ object.template.configuration|default:"" }}</pre></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

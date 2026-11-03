@@ -1,0 +1,122 @@
+{% extends 'dcim/device/base.html' %}
+{% load i18n %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-12 col-lg-4">
+    <div class="card">
+      <h2 class="card-header">{% trans "Last collection" %}</h2>
+      <table class="table table-hover attr-table">
+        {% if latest_result %}
+          <tr><th scope="row">{% trans "Status" %}</th><td><a href="{{ latest_result.get_absolute_url }}">{% badge latest_result.get_status_display bg_color=latest_result.get_status_color %}</a></td></tr>
+          <tr><th scope="row">{% trans "Time" %}</th><td>{{ latest_result.timestamp|isodatetime:"minutes" }}</td></tr>
+          <tr><th scope="row">{% trans "Message" %}</th><td>{{ latest_result.message|placeholder }}</td></tr>
+          {% if latest_result.job_id %}<tr><th scope="row">{% trans "Run" %}</th><td><a href="{% url 'plugins:config_officer:run' pk=latest_result.job_id %}">#{{ latest_result.job_id }}</a></td></tr>{% endif %}
+        {% else %}
+          <tr><td class="text-secondary">{% trans "This device has not been collected yet." %}</td></tr>
+        {% endif %}
+      </table>
+      {% if can_collect %}
+        <div class="card-footer">{% include 'config_officer/inc/collect_button.html' with device=object %}</div>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h2 class="card-header">{% trans "Change history" %}</h2>
+      <div id="co-history" class="card-body"><span class="text-secondary">{% trans "Loading..." %}</span></div>
+    </div>
+  </div>
+  <div class="col col-12 col-lg-8">
+    <div class="card">
+      <h2 class="card-header">
+        {% trans "Running configuration" %} <small id="co-updated" class="text-secondary"></small>
+        <div class="card-actions">{% copy_content "co-config" %}</div>
+      </h2>
+      <div class="card-body">
+        <div id="co-error" class="alert alert-warning d-none"></div>
+        <pre id="co-config" class="mb-0"><span class="text-secondary">{% trans "Loading..." %}</span></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if snapshot %}{{ snapshot|json_script:"co-config-data" }}{% endif %}
+<script>
+  // Renders the config and its git history from JSON: embedded in the page when the
+  // web server can read the repository, otherwise fetched from the worker.
+  (function () {
+    const statusUrl = "{% url 'plugins:config_officer:device_config_status' pk=object.pk %}?job={{ worker_job_id|default:'' }}";
+    const $ = (id) => document.getElementById(id);
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+    function fmt(iso) { return iso ? new Date(iso).toLocaleString() : "-"; }
+
+    function renderDiff(diff) {
+      const pre = el("pre", "mb-0 small");
+      (diff || "").split("\n").forEach(function (line) {
+        let cls = "";
+        if (line.startsWith("+") && !line.startsWith("+++")) cls = "text-success";
+        else if (line.startsWith("-") && !line.startsWith("---")) cls = "text-danger";
+        else if (line.startsWith("@@")) cls = "text-info";
+        pre.appendChild(el("span", cls, line + "\n"));
+      });
+      return pre;
+    }
+
+    function render(data) {
+      $("co-config").textContent = data.config || "{% trans 'No configuration stored for this device yet.' %}";
+      $("co-updated").textContent = data.updated ? "{% trans 'collected' %} " + fmt(data.updated) : "";
+      const box = $("co-history");
+      box.replaceChildren();
+      const history = data.history || {commits: []};
+      if (!history.count) { box.appendChild(el("span", "text-secondary", "{% trans 'No changes recorded yet.' %}")); return; }
+      box.appendChild(el("p", "text-secondary small",
+        history.count + " {% trans 'change(s) since' %} " + fmt(history.first_date) + "; {% trans 'showing the latest' %} " + history.commits.length + "."));
+      history.commits.forEach(function (commit, index) {
+        const id = "co-diff-" + index;
+        const header = el("a", "d-flex justify-content-between text-decoration-none");
+        header.href = "#" + id;
+        header.setAttribute("data-bs-toggle", "collapse");
+        header.appendChild(el("span", "", fmt(commit.date)));
+        header.appendChild(el("code", "", commit.sha.slice(0, 8)));
+        const body = el("div", "collapse mt-1" + (index === 0 ? " show" : ""));
+        body.id = id;
+        body.appendChild(el("div", "text-secondary small", commit.message));
+        body.appendChild(renderDiff(commit.diff));
+        const item = el("div", "border-bottom py-2");
+        item.appendChild(header);
+        item.appendChild(body);
+        box.appendChild(item);
+      });
+    }
+
+    function fail(message) {
+      $("co-error").textContent = message;
+      $("co-error").classList.remove("d-none");
+      $("co-config").textContent = "";
+      $("co-history").textContent = "";
+    }
+
+    const embedded = $("co-config-data");
+    if (embedded) { render(JSON.parse(embedded.textContent)); return; }
+    {% if not worker_job_id %}fail("{% trans 'Could not ask the background worker for the configuration.' %}"); return;{% endif %}
+
+    let attempts = 0;
+    (function poll() {
+      fetch(statusUrl, {credentials: "same-origin"})
+        .then((response) => response.json())
+        .then(function (data) {
+          if (data.ready) render(data);
+          else if (data.failed || data.error) fail("{% trans 'The background worker could not read the configuration' %}" + (data.error ? ": " + data.error : "."));
+          else if (++attempts < 90) setTimeout(poll, 1000);
+          else fail("{% trans 'Timed out waiting for the background worker (is it busy with a long collection run?).' %}");
+        })
+        .catch(function () { if (++attempts < 90) setTimeout(poll, 2000); });
+    })();
+  })();
+</script>
+{% endblock %}

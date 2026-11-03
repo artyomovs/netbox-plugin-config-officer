@@ -1,0 +1,39 @@
+{% extends 'generic/object.html' %}
+{% load render_table from django_tables2 %}
+{% load i18n %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-12 col-lg-5">
+    <div class="card">
+      <h2 class="card-header">{% trans "Compliance service" %}</h2>
+      <table class="table table-hover attr-table">
+        <tr><th scope="row">{% trans "Name" %}</th><td>{{ object.name }}</td></tr>
+        <tr><th scope="row">{% trans "Description" %}</th><td>{{ object.description|placeholder }}</td></tr>
+        <tr>
+          <th scope="row">{% trans "Assigned devices" %}</th>
+          <td><a href="{% url 'plugins:config_officer:compliance_list' %}?compliance_service_id={{ object.pk }}">{{ device_count }}</a></td>
+        </tr>
+      </table>
+    </div>
+    {% include 'inc/panels/tags.html' %}
+    {% include 'inc/panels/custom_fields.html' %}
+  </div>
+  <div class="col col-12 col-lg-7">
+    <div class="card">
+      <h2 class="card-header">
+        {% trans "Rules" %}
+        {% if perms.config_officer.add_servicerule %}
+          <div class="card-actions">
+            <a href="{% url 'plugins:config_officer:servicerule_add' %}?service={{ object.pk }}&return_url={{ object.get_absolute_url }}" class="btn btn-ghost-primary btn-sm">
+              <i class="mdi mdi-plus-thick"></i> {% trans "Add a rule" %}
+            </a>
+          </div>
+        {% endif %}
+      </h2>
+      <div class="table-responsive">{% render_table rules_table 'inc/table.html' %}</div>
+      <div class="card-footer text-secondary small">{% trans "Each rule applies its template to the service's devices that match the rule's roles and device types (empty = any)." %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

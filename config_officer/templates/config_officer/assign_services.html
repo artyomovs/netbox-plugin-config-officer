@@ -1,0 +1,36 @@
+{% extends 'base/layout.html' %}
+{% load form_helpers %}
+{% load i18n %}
+
+{% block title %}{% trans "Assign compliance services" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col col-12 col-lg-6">
+    <form method="post" action="{% url 'plugins:config_officer:compliance_assign' %}">
+      {% csrf_token %}
+      <input type="hidden" name="_confirm" value="1">
+      {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+      <div class="card">
+        <h2 class="card-header">{% trans "Services" %}</h2>
+        <div class="card-body">
+          {% render_field form.services %}
+          {% render_field form.replace %}
+        </div>
+      </div>
+      <div class="text-end">
+        <a href="{{ return_url }}" class="btn btn-outline-secondary">{% trans "Cancel" %}</a>
+        <button type="submit" class="btn btn-primary">{% trans "Assign" %}</button>
+      </div>
+    </form>
+  </div>
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Selected devices" %} <span class="badge text-bg-secondary">{{ devices|length }}</span></h2>
+      <ul class="list-group list-group-flush">
+        {% for device in devices %}<li class="list-group-item">{{ device|linkify }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

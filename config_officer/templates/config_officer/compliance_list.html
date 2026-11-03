@@ -1,0 +1,24 @@
+{% extends 'generic/object_list.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Compliance status" %}{% endblock %}
+
+{% block bulk_buttons %}
+  <div class="btn-list bulk-action-buttons">
+    {% if perms.config_officer.add_servicemapping %}
+      <button type="submit" formaction="{% url 'plugins:config_officer:compliance_assign' %}" class="btn btn-primary btn-sm">
+        <i class="mdi mdi-link-variant"></i> {% trans "Assign services" %}
+      </button>
+    {% endif %}
+    {% if perms.config_officer.delete_servicemapping %}
+      <button type="submit" formaction="{% url 'plugins:config_officer:compliance_detach' %}" class="btn btn-warning btn-sm">
+        <i class="mdi mdi-link-variant-off"></i> {% trans "Remove all services" %}
+      </button>
+    {% endif %}
+    {% if perms.config_officer.change_compliance %}
+      <button type="submit" formaction="{% url 'plugins:config_officer:compliance_recheck' %}" class="btn btn-outline-primary btn-sm">
+        <i class="mdi mdi-refresh"></i> {% trans "Re-check compliance" %}
+      </button>
+    {% endif %}
+  </div>
+{% endblock %}

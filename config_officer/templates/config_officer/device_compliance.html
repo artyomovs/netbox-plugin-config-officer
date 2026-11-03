@@ -1,0 +1,44 @@
+{% extends 'dcim/device/base.html' %}
+{% load i18n %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-12 col-lg-5">
+    <div class="card">
+      <h2 class="card-header">{% trans "Compliance" %}</h2>
+      <table class="table table-hover attr-table">
+        <tr>
+          <th scope="row">{% trans "Status" %}</th>
+          <td>{% if compliance %}{% badge compliance.get_status_display bg_color=compliance.get_status_color %}{% else %}<span class="text-secondary">{% trans "not checked yet" %}</span>{% endif %}</td>
+        </tr>
+        <tr><th scope="row">{% trans "Notes" %}</th><td>{{ compliance.notes|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Last checked" %}</th><td>{{ compliance.last_checked|isodatetime:"minutes"|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Services" %}</th><td>{% for service in services %}{{ service|linkify }}{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}</td></tr>
+        <tr><th scope="row">{% trans "Matching templates" %}</th><td>{% for template in templates %}{{ template|linkify }}{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}</td></tr>
+      </table>
+      {% if can_recheck %}
+        <div class="card-footer">
+          <form method="post" action="{% url 'plugins:config_officer:compliance_recheck' %}">
+            {% csrf_token %}
+            <input type="hidden" name="pk" value="{{ object.pk }}">
+            <input type="hidden" name="return_url" value="{{ request.path }}">
+            <button type="submit" class="btn btn-outline-primary btn-sm"><i class="mdi mdi-refresh"></i> {% trans "Re-check now" %}</button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col col-12 col-lg-7">
+    <div class="card">
+      <h2 class="card-header">{% trans "Missing lines" %}</h2>
+      <div class="card-body">
+        {% if compliance.diff %}<pre class="mb-0 text-danger">{{ compliance.diff }}</pre>{% else %}<span class="text-secondary">{% trans "Nothing is missing." %}</span>{% endif %}
+      </div>
+    </div>
+    <div class="card">
+      <h2 class="card-header">{% trans "Expected configuration (merged templates)" %}</h2>
+      <div class="card-body"><pre class="mb-0">{{ compliance.generated_config|default:"" }}</pre></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

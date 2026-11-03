@@ -1,91 +1,62 @@
-from django.urls import path
+"""UI routes (mounted under /plugins/config_officer/).
+
+Model views are registered with ``@register_model_view`` in views.py and pulled
+in with ``get_model_urls``, which also adds the change log / journal / jobs tabs.
+The device tabs ("Configuration", "Compliance") live under /dcim/devices/<pk>/.
+"""
+
+from django.urls import include, path
+from django.views.generic import RedirectView
+from utilities.urls import get_model_urls
 
 from . import views
-from .models import CollectSchedule
+
+
+def model_urls(prefix: str, model_name: str):
+    return [
+        path(f"{prefix}/", include(get_model_urls("config_officer", model_name, detail=False))),
+        path(f"{prefix}/<int:pk>/", include(get_model_urls("config_officer", model_name))),
+    ]
+
 
 urlpatterns = [
     # Collection
+    path("collection/", views.CollectionDashboardView.as_view(), name="collection_dashboard"),
+    path("runs/<int:pk>/", views.CollectionRunView.as_view(), name="run"),
+    *model_urls("results", "collection"),
+    *model_urls("schedules", "collectschedule"),
     path(
-        "collect_all_cisco_configs/",
-        views.GlobalCollectionDeviceConfigs.as_view(),
-        name="collect_all_cisco_configs",
+        "schedules/<int:pk>/run/",
+        views.CollectScheduleRunView.as_view(),
+        name="collectschedule_run",
     ),
-    path("collection_status/", views.CollectStatusListView.as_view(), name="collection_status"),
+    path("devices/<int:pk>/collect/", views.DeviceCollectView.as_view(), name="device_collect"),
     path(
-        "collect_device_config/<slug:slug>/",
-        views.collect_device_config,
-        name="collect_device_config",
+        "devices/<int:pk>/config-status/",
+        views.DeviceConfigStatusView.as_view(),
+        name="device_config_status",
     ),
+    # Compliance
+    *model_urls("templates", "template"),
+    *model_urls("services", "service"),
+    *model_urls("service-rules", "servicerule"),
+    path("compliance/", views.ComplianceListView.as_view(), name="compliance_list"),
+    path("compliance/assign/", views.AssignServicesView.as_view(), name="compliance_assign"),
+    path("compliance/detach/", views.DetachServicesView.as_view(), name="compliance_detach"),
+    path("compliance/recheck/", views.RecheckComplianceView.as_view(), name="compliance_recheck"),
+    # 0.1.x addresses (bookmarks, custom links)
     path(
-        "collection_task_delete/", views.CollectTaskDelete.as_view(), name="collection_task_delete"
+        "running_config/<str:hostname>/",
+        views.LegacyRunningConfigRedirect.as_view(),
+        name="running_config",
     ),
-    # Templates
-    path("templates/", views.TemplateListView.as_view(), name="template_list"),
-    path("templates/add/", views.TemplateCreateView.as_view(), name="template_add"),
-    path("templates/<int:pk>/", views.TemplateView.as_view(), name="template"),
-    path("templates/<int:pk>/edit/", views.TemplateEditView.as_view(), name="template_edit"),
-    path("templates/<int:pk>/delete/", views.TemplateDeleteView.as_view(), name="template_delete"),
-    # Services
-    path("service_list/", views.ServiceListView.as_view(), name="service_list"),
-    path("services/add/", views.ServiceCreateView.as_view(), name="service_add"),
-    path("services/<int:pk>/", views.ServiceView.as_view(), name="service"),
-    path("services/<int:pk>/edit/", views.ServiceEditView.as_view(), name="service_edit"),
-    path("services/<int:pk>/delete/", views.ServiceDeleteView.as_view(), name="service_delete"),
-    # Service rules
-    path("service_rules/", views.ServiceRuleListView.as_view(), name="service_rules_list"),
-    path("service_rules/add/", views.ServiceRuleCreateView.as_view(), name="service_rule_add"),
+    path("compliance/<int:device>/", views.LegacyComplianceRedirect.as_view(), name="compliance"),
     path(
-        "service_rules/<int:pk>/edit/",
-        views.ServiceRuleEditView.as_view(),
-        name="service_rule_edit",
-    ),
-    path(
-        "service_rules/<int:pk>/delete/",
-        views.ServiceRuleDeleteView.as_view(),
-        name="service_rule_delete",
-    ),
-    # Compliance / Service mapping
-    path("service_mapping/", views.ServiceMappingListView.as_view(), name="service_mapping_list"),
-    path(
-        "service_mapping/add/", views.ServiceMappingCreateView.as_view(), name="service_mapping_add"
-    ),
-    path("service_mapping/assign/", views.ServiceAssign.as_view(), name="assign_service"),
-    path("service_mapping/remove/", views.ServiceDetach.as_view(), name="remove_assignment"),
-    path(
-        "service_mapping/<int:pk>/delete/",
-        views.ServiceMappingDeleteView.as_view(),
-        name="service_mapping_delete",
-    ),
-    path("compliance/<int:device>/", views.ComplianceView.as_view(), name="compliance"),
-    # Running-config (target for NetBox Custom Link)
-    path("running_config/<slug:hostname>/", views.running_config, name="running_config"),
-    # Schedules
-    path("schedules/", views.CollectScheduleListView.as_view(), name="schedule_list"),
-    path("schedules/add/", views.CollectScheduleEditView.as_view(), name="collectschedule_add"),
-    path(
-        "schedules/<int:pk>/edit/",
-        views.CollectScheduleEditView.as_view(),
-        name="collectschedule_edit",
+        "collection_status/",
+        RedirectView.as_view(pattern_name="plugins:config_officer:collection_list"),
     ),
     path(
-        "schedules/<int:pk>/delete/",
-        views.CollectScheduleDeleteView.as_view(),
-        name="collectschedule_delete",
-    ),
-    path(
-        "schedules/<int:pk>/run-now/",
-        views.CollectScheduleRunNowView.as_view(),
-        name="collectschedule_run_now",
-    ),
-    path(
-        "schedules/<int:pk>/jobs/",
-        views.CollectScheduleJobsView.as_view(),
-        name="collectschedule_jobs",
-        kwargs={"model": CollectSchedule},
-    ),
-    path(
-        "running_config/<str:hostname>/status/<str:config_job_id>/<str:repo_job_id>/",
-        views.running_config_status,
-        name="running_config_status",
+        "service_mapping/",
+        RedirectView.as_view(pattern_name="plugins:config_officer:compliance_list"),
     ),
 ]

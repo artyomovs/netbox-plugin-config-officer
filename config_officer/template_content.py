@@ -1,68 +1,49 @@
-"""
-Plugin template extensions - injects buttons into the Device detail page.
+"""Additions to NetBox's device page: a "Collect config" button and a status panel.
 
-NetBox looks for this file as 'template_content.py' by default
-(DEFAULT_RESOURCE_PATHS['template_extensions'] = 'template_content.template_extensions').
-The list must be named 'template_extensions'.
+The "Configuration" and "Compliance" tabs on the device page are views, see
+views.DeviceConfigView and views.DeviceComplianceView.
 """
 
-from django.urls import NoReverseMatch, reverse
-from django.utils.html import format_html
 from netbox.plugins import PluginTemplateExtension
 
-from .models import Compliance
+from .models import Collection, Compliance
+from .permissions import COLLECT_CONFIG, VIEW_CONFIG
 
 
-class DeviceConfigButtons(PluginTemplateExtension):
-    """Add config-officer action buttons to the Device detail page."""
-
+class DeviceConfigOfficer(PluginTemplateExtension):
     models = ["dcim.device"]
 
     def buttons(self):
         device = self.context["object"]
-        name = device.name
-
-        try:
-            running_url = reverse(
-                "plugins:config_officer:running_config",
-                kwargs={"hostname": name},
-            )
-            collect_url = reverse(
-                "plugins:config_officer:collect_device_config",
-                kwargs={"slug": name},
-            )
-        except NoReverseMatch:
+        user = self.context["request"].user
+        if not user.has_perm(COLLECT_CONFIG, device):
             return ""
+        return self.render(
+            "config_officer/inc/collect_button.html", extra_context={"device": device}
+        )
 
-        # Compliance button only if a Compliance record exists
-        compliance_html = ""
-        try:
-            if Compliance.objects.filter(device=device).exists():
-                compliance_url = reverse(
-                    "plugins:config_officer:compliance",
-                    kwargs={"device": device.pk},
-                )
-                compliance_html = format_html(
-                    ' <a href="{}" class="btn btn-outline-secondary btn-sm">'
-                    '<i class="mdi mdi-check-decagram"></i> Compliance'
-                    "</a>",
-                    compliance_url,
-                )
-        except Exception:
-            pass
-
-        return format_html(
-            '<a href="{}" class="btn btn-outline-info btn-sm">'
-            '<i class="mdi mdi-console"></i> Show running config'
-            "</a> "
-            '<a href="{}" class="btn btn-outline-primary btn-sm">'
-            '<i class="mdi mdi-download-network"></i> Collect config'
-            "</a>"
-            "{}",
-            running_url,
-            collect_url,
-            compliance_html,
+    def right_page(self):
+        device = self.context["object"]
+        user = self.context["request"].user
+        can_view_results = user.has_perm("config_officer.view_collection")
+        can_view_compliance = user.has_perm("config_officer.view_compliance")
+        if not (can_view_results or can_view_compliance):
+            return ""
+        return self.render(
+            "config_officer/inc/device_panel.html",
+            extra_context={
+                "device": device,
+                "latest_result": Collection.objects.filter(device=device).first()
+                if can_view_results
+                else None,
+                "compliance": Compliance.objects.filter(device=device).first()
+                if can_view_compliance
+                else None,
+                "can_view_results": can_view_results,
+                "can_view_compliance": can_view_compliance,
+                "can_view_config": user.has_perm(VIEW_CONFIG, device),
+            },
         )
 
 
-template_extensions = [DeviceConfigButtons]
+template_extensions = [DeviceConfigOfficer]

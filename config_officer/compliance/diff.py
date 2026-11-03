@@ -1,5 +1,5 @@
 """
-Lightweight drop-in replacement for diffios.
+Hierarchical diff of Cisco IOS-style configurations (a lightweight replacement for diffios).
 
 Supports:
     Compare(template, config, ignore_lines).missing()

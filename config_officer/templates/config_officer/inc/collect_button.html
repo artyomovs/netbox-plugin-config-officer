@@ -1,0 +1,7 @@
+{% load i18n %}
+<form method="post" action="{% url 'plugins:config_officer:device_collect' pk=device.pk %}" class="d-inline">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-primary" title="{% trans 'Collect the running configuration now (Config Officer)' %}">
+    <i class="mdi mdi-download-network"></i> {% trans "Collect config" %}
+  </button>
+</form>

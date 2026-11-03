@@ -1,9 +1,18 @@
-"""REST API URLs for compliance."""
+from django.urls import path
+from netbox.api.routers import NetBoxRouter
 
-from rest_framework import routers
+from . import views
 
-from .views import GlobalDataCollectionView
+router = NetBoxRouter()
+router.register("templates", views.TemplateViewSet)
+router.register("services", views.ServiceViewSet)
+router.register("service-rules", views.ServiceRuleViewSet)
+router.register("schedules", views.CollectScheduleViewSet)
+router.register("results", views.CollectionViewSet)
+router.register("compliance", views.ComplianceViewSet)
 
-router = routers.DefaultRouter()
-router.register(r"collection", GlobalDataCollectionView)
-urlpatterns = router.urls
+urlpatterns = [
+    path("runs/", views.RunCollectionView.as_view(), name="run"),
+    path("collection/", views.LegacyGlobalCollectionView.as_view(), name="legacy-collection"),
+    *router.urls,
+]

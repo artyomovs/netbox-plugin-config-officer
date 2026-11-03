@@ -1,10 +1,10 @@
 """
-tests/test_cisco_diff.py
+tests/unit/test_diff.py
 ------------------------
-Unit tests for config_officer.cisco_diff.
+Unit tests for config_officer.compliance.diff.
 
 Run:
-    pytest tests/test_cisco_diff.py -v
+    pytest tests/unit/test_diff.py -v
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from config_officer.cisco_diff import (
+from config_officer.compliance.diff import (
     Compare,
     Config,
     _load,

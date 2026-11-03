@@ -1,0 +1,85 @@
+{% extends 'base/layout.html' %}
+{% load render_table from django_tables2 %}
+{% load i18n %}
+
+{% block title %}{% trans "Collection run" %} #{{ job.pk }}{% endblock %}
+
+{% block head %}
+  {{ block.super }}
+  {% if running %}<meta http-equiv="refresh" content="5">{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Run" %}</h2>
+      <table class="table table-hover attr-table">
+        <tr><th scope="row">{% trans "Status" %}</th><td>{% badge job.get_status_display bg_color=job.get_status_color %}{% if running %} <span class="text-secondary small">{% trans "(this page refreshes every 5 seconds)" %}</span>{% endif %}</td></tr>
+        <tr><th scope="row">{% trans "Devices" %}</th><td>{{ data.target|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Started by" %}</th><td>{% if job.object %}{{ job.object|linkify }} &middot; {% endif %}{{ job.user|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Created" %}</th><td>{{ job.created|isodatetime }}</td></tr>
+        <tr><th scope="row">{% trans "Started" %}</th><td>{{ job.started|isodatetime|placeholder }}</td></tr>
+        <tr><th scope="row">{% trans "Completed" %}</th><td>{{ job.completed|isodatetime|placeholder }}</td></tr>
+        {% if data.progress and running %}
+          <tr><th scope="row">{% trans "Progress" %}</th><td>{{ data.progress.done }} / {{ data.progress.total }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+  <div class="col col-12 col-lg-6">
+    <div class="card">
+      <h2 class="card-header">{% trans "Result" %}</h2>
+      <table class="table table-hover attr-table">
+        {% with s=data.summary %}
+          <tr><th scope="row">{% trans "Devices" %}</th><td>{% if s %}{{ s.total }}{% else %}&mdash;{% endif %}</td></tr>
+          <tr><th scope="row">{% trans "Succeeded" %}</th><td>{% if s %}<span class="text-success">{{ s.succeeded }}</span>{% else %}&mdash;{% endif %}</td></tr>
+          <tr><th scope="row">{% trans "Failed" %}</th><td>{% if s %}<span class="{% if s.failed %}text-danger{% endif %}">{{ s.failed }}</span>{% else %}&mdash;{% endif %}</td></tr>
+          <tr><th scope="row">{% trans "Skipped" %}</th><td>{% if s %}{{ s.skipped }}{% else %}&mdash;{% endif %}</td></tr>
+          <tr><th scope="row">{% trans "Configs changed" %}</th><td>{% if s %}{{ s.changed }}{% else %}&mdash;{% endif %}</td></tr>
+        {% endwith %}
+        <tr>
+          <th scope="row">{% trans "Git commit" %}</th>
+          <td>
+            {% if data.commit.sha %}<code>{{ data.commit.sha|slice:":8" }}</code> ({{ data.commit.files }} {% trans "file(s)" %}){% elif data.commit %}{% trans "no changes" %}{% else %}&mdash;{% endif %}
+            {% if data.commit.pushed %}<span class="badge text-bg-green">{% trans "pushed" %}</span>{% elif data.commit.pushed is False %}<span class="badge text-bg-red">{% trans "push failed" %}</span>{% endif %}
+          </td>
+        </tr>
+        {% if data.errors %}
+          <tr><th scope="row">{% trans "Problems" %}</th><td class="text-danger">{% for error in data.errors %}{{ error }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td></tr>
+        {% endif %}
+      </table>
+      <div class="card-footer d-flex gap-2">
+        {% if perms.core.view_objectchange %}
+          <a href="{{ changelog_url }}" class="btn btn-sm btn-outline-primary"><i class="mdi mdi-history"></i> {% trans "NetBox changes made by this run" %}</a>
+        {% endif %}
+        {% if perms.core.view_job %}
+          <a href="{% url 'core:job' pk=job.pk %}" class="btn btn-sm btn-outline-secondary">{% trans "Job details" %}</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="card-header">{% trans "Devices" %}</h2>
+  <div class="table-responsive">{% render_table results_table 'inc/table.html' %}</div>
+</div>
+
+<div class="card">
+  <h2 class="card-header">{% trans "Log" %}</h2>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      {% for entry in log_entries %}
+        <tr>
+          <td class="text-nowrap text-secondary small">{{ entry.timestamp|slice:"11:19" }}</td>
+          <td>{% if entry.level == "error" %}<span class="badge text-bg-red">error</span>{% elif entry.level == "warning" %}<span class="badge text-bg-yellow">warning</span>{% else %}<span class="badge text-bg-blue">{{ entry.level }}</span>{% endif %}</td>
+          <td class="font-monospace small">{{ entry.message }}</td>
+        </tr>
+      {% empty %}
+        <tr><td class="text-secondary">{% trans "No log entries yet." %}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}
